@@ -33,21 +33,39 @@ class MultiTickerScheduler:
     
     def load_config(self):
         """Ładuje konfigurację tickerów z pliku JSON"""
-        config_path = os.path.join(os.path.dirname(__file__), '..', 'tickers_config.json')
+        # Try multiple possible locations for tickers_config.json
+        possible_paths = [
+            os.path.join(os.path.dirname(__file__), '..', 'tickers_config.json'),  # Original path
+            '/app/tickers_config.json',  # Docker app root
+            os.path.join(os.getcwd(), 'tickers_config.json'),  # Current working directory
+        ]
         
-        try:
-            with open(config_path, 'r', encoding='utf-8') as f:
-                config = json.load(f)
-                print(f"Załadowano konfigurację z {len(config['active_tickers'])} tickerami")
-                return config
-        except Exception as e:
-            print(f"Błąd ładowania konfiguracji: {e}")
-            # Domyślna konfiguracja
-            return {
-                "active_tickers": ["PKN", "CDR", "PKO"],
-                "scraping_settings": {
-                    "interval_minutes": 15,
-                    "use_selenium": True,
+        config = None
+        config_path = None
+        
+        for path in possible_paths:
+            if os.path.exists(path):
+                config_path = path
+                break
+        
+        if config_path:
+            try:
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                    print(f"✅ Załadowano konfigurację z {config_path}")
+                    if 'active_tickers' in config:
+                        print(f"📋 Znaleziono {len(config['active_tickers'])} aktywnych tickerów")
+                    return config
+            except Exception as e:
+                print(f"❌ Błąd ładowania konfiguracji z {config_path}: {e}")
+        
+        print(f"⚠️ Nie znaleziono pliku tickers_config.json, używam domyślnej konfiguracji")
+        # Domyślna konfiguracja
+        return {
+            "active_tickers": ["PKN", "CDR", "PKO"],
+            "scraping_settings": {
+                "interval_minutes": 15,
+                "use_selenium": True,
                     "headless": True,
                     "max_retries": 3
                 }
@@ -55,16 +73,29 @@ class MultiTickerScheduler:
     
     def save_config(self):
         """Zapisuje konfigurację do pliku JSON"""
-        config_path = os.path.join(os.path.dirname(__file__), '..', 'tickers_config.json')
+        # Try multiple possible locations for tickers_config.json
+        possible_paths = [
+            os.path.join(os.path.dirname(__file__), '..', 'tickers_config.json'),  # Original path
+            '/app/tickers_config.json',  # Docker app root
+            os.path.join(os.getcwd(), 'tickers_config.json'),  # Current working directory
+        ]
         
-        try:
-            with open(config_path, 'w', encoding='utf-8') as f:
-                json.dump(self.config, f, indent=4, ensure_ascii=False)
-                print("Konfiguracja zapisana pomyślnie")
-                return True
-        except Exception as e:
-            print(f"Błąd zapisywania konfiguracji: {e}")
-            return False
+        # Try to save to first writable location
+        for config_path in possible_paths:
+            try:
+                # Create directory if it doesn't exist
+                os.makedirs(os.path.dirname(config_path), exist_ok=True)
+                
+                with open(config_path, 'w', encoding='utf-8') as f:
+                    json.dump(self.config, f, indent=4, ensure_ascii=False)
+                    print(f"✅ Konfiguracja zapisana pomyślnie do {config_path}")
+                    return True
+            except Exception as e:
+                print(f"⚠️ Nie można zapisać do {config_path}: {e}")
+                continue
+        
+        print(f"❌ Nie można zapisać konfiguracji do żadnej z lokalizacji")
+        return False
     
     def add_ticker(self, ticker):
         """Dodaje ticker do listy aktywnych - modyfikuje bazę danych"""

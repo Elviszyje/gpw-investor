@@ -20,8 +20,10 @@ CREATE TABLE IF NOT EXISTS companies (
 CREATE TABLE IF NOT EXISTS ticker_mappings (
     id SERIAL PRIMARY KEY,
     ticker VARCHAR(10) NOT NULL,
-    source_ticker VARCHAR(20),
+    bankier_symbol VARCHAR(20),  -- Changed from source_ticker to match code expectations
+    source_ticker VARCHAR(20),   -- Keep for backward compatibility
     source VARCHAR(50) DEFAULT 'bankier',
+    description TEXT,
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -206,19 +208,19 @@ INSERT INTO companies (ticker, name, sector, industry) VALUES
     ('MBANK', 'mBank S.A.', 'Financial', 'Banking')
 ON CONFLICT (ticker) DO NOTHING;
 
-INSERT INTO ticker_mappings (ticker, source_ticker, source) VALUES
-    ('PKN', 'pknorlen', 'bankier'),
-    ('PZU', 'pzu', 'bankier'),
-    ('KGHM', 'kghm', 'bankier'),
-    ('PEKAO', 'pekao', 'bankier'),
-    ('LPP', 'lpp', 'bankier'),
-    ('CCC', 'ccc', 'bankier'),
-    ('ALLEGRO', 'allegro', 'bankier'),
-    ('CDPROJEKT', 'cdprojekt', 'bankier'),
-    ('DIINO', 'diino', 'bankier'),
-    ('JSW', 'jsw', 'bankier'),
-    ('MBANK', 'mbank', 'bankier'),
-    ('PKNM', 'pknm', 'bankier')
+INSERT INTO ticker_mappings (ticker, bankier_symbol, source_ticker, source) VALUES
+    ('PKN', 'pknorlen', 'pknorlen', 'bankier'),
+    ('PZU', 'pzu', 'pzu', 'bankier'),
+    ('KGHM', 'kghm', 'kghm', 'bankier'),
+    ('PEKAO', 'pekao', 'pekao', 'bankier'),
+    ('LPP', 'lpp', 'lpp', 'bankier'),
+    ('CCC', 'ccc', 'ccc', 'bankier'),
+    ('ALLEGRO', 'allegro', 'allegro', 'bankier'),
+    ('CDPROJEKT', 'cdprojekt', 'cdprojekt', 'bankier'),
+    ('DIINO', 'diino', 'diino', 'bankier'),
+    ('JSW', 'jsw', 'jsw', 'bankier'),
+    ('MBANK', 'mbank', 'mbank', 'bankier'),
+    ('PKNM', 'pknm', 'pknm', 'bankier')
 ON CONFLICT DO NOTHING;
 
 -- Create health check table

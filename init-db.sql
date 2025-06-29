@@ -11,12 +11,15 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- Create a simple health check table for monitoring
 CREATE TABLE IF NOT EXISTS health_check (
     id SERIAL PRIMARY KEY,
+    service_name VARCHAR(50) NOT NULL DEFAULT 'database',
     status VARCHAR(50) DEFAULT 'healthy',
+    last_check TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Insert initial health check record
-INSERT INTO health_check (status) VALUES ('database_initialized') ON CONFLICT DO NOTHING;
+INSERT INTO health_check (service_name, status) VALUES ('database', 'database_initialized') 
+ON CONFLICT DO NOTHING;
 
 -- Note: Detailed table creation (quotes, companies, recommendations, etc.) 
 -- will be handled by the application using SQLAlchemy models
