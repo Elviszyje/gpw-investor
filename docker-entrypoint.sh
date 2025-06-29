@@ -35,7 +35,7 @@ chmod -R 755 storage models logs data
 
 # Initialize database if needed
 echo "🔧 Checking database initialization..."
-python -c "
+python3 -c "
 import os
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
@@ -79,6 +79,68 @@ try:
     
 except Exception as e:
     print(f'⚠️ Database initialization failed: {e}')
+    print('Application will start but may have limited functionality')
+"
+
+echo "🔧 Running database migration fixes..."
+# Check if migration is needed and apply fixes
+python3 -c "
+import os
+import psycopg2
+from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+
+try:
+    DATABASE_URL = os.getenv('DATABASE_URL')
+    if not DATABASE_URL:
+        print('⚠️ No DATABASE_URL, skipping migration')
+        exit(0)
+    
+    conn = psycopg2.connect(DATABASE_URL)
+    conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+    cursor = conn.cursor()
+    
+    # Check if fix is needed
+    cursor.execute(\"\"\"
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'health_check' 
+        AND column_name = 'service_name'
+    \"\"\")
+    
+    has_service_name = cursor.fetchone() is not None
+    
+    if not has_service_name:
+        print('🔧 Applying database schema fixes...')
+        # Read and execute fix file
+        if os.path.exists('/app/fix-db-schema.sql'):
+            with open('/app/fix-db-schema.sql', 'r') as f:
+                fix_sql = f.read()
+            cursor.execute(fix_sql)
+            print('✅ Database schema fixes applied')
+        else:
+            print('⚠️ Fix file not found, applying basic fixes...')
+            # Basic fixes
+            cursor.execute(\"\"\"
+                ALTER TABLE health_check ADD COLUMN IF NOT EXISTS service_name VARCHAR(50) DEFAULT 'database';
+                CREATE TABLE IF NOT EXISTS ticker_mappings (
+                    id SERIAL PRIMARY KEY,
+                    ticker VARCHAR(10) NOT NULL UNIQUE,
+                    bankier_symbol VARCHAR(50),
+                    stooq_symbol VARCHAR(50),
+                    source VARCHAR(20) DEFAULT 'manual',
+                    is_active BOOLEAN DEFAULT true,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            \"\"\")
+            print('✅ Basic schema fixes applied')
+    else:
+        print('✅ Database schema is up to date')
+    
+    cursor.close()
+    conn.close()
+    
+except Exception as e:
+    print(f'⚠️ Database migration failed: {e}')
     print('Application will start but may have limited functionality')
 "
 

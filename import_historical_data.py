@@ -11,11 +11,11 @@ import os
 import pandas as pd
 import glob
 import shutil
+import logging
 from sqlalchemy import create_engine, text
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
 from dotenv import load_dotenv
-import logging
 from ticker_manager import auto_register_ticker_from_import
 from enhanced_ticker_registration import enhanced_auto_register_ticker_from_import, EnhancedTickerAutoRegistration
 

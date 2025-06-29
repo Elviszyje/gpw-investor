@@ -35,9 +35,9 @@ class MultiTickerScheduler:
         """Ładuje konfigurację tickerów z pliku JSON"""
         # Try multiple possible locations for tickers_config.json
         possible_paths = [
-            os.path.join(os.path.dirname(__file__), '..', 'tickers_config.json'),  # Original path
-            '/app/tickers_config.json',  # Docker app root
+            '/app/tickers_config.json',  # Docker app root (first priority)
             os.path.join(os.getcwd(), 'tickers_config.json'),  # Current working directory
+            os.path.join(os.path.dirname(__file__), '..', 'tickers_config.json'),  # Original path
         ]
         
         config = None
@@ -75,9 +75,9 @@ class MultiTickerScheduler:
         """Zapisuje konfigurację do pliku JSON"""
         # Try multiple possible locations for tickers_config.json
         possible_paths = [
-            os.path.join(os.path.dirname(__file__), '..', 'tickers_config.json'),  # Original path
-            '/app/tickers_config.json',  # Docker app root
+            '/app/tickers_config.json',  # Docker app root (first priority)
             os.path.join(os.getcwd(), 'tickers_config.json'),  # Current working directory
+            os.path.join(os.path.dirname(__file__), '..', 'tickers_config.json'),  # Original path
         ]
         
         # Try to save to first writable location
