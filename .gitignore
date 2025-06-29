@@ -132,12 +132,8 @@ final_summary.py
 performance_*.py
 price_alerts.py
 telegram_notifications.py
-ticker_manager*.py
 system_health_check.py
-import_job_manager.py
-enhanced_ticker_registration.py
 data_gap_filler.py
-import_historical_data*.py
 
 # Ignoruj dokumenty robocze
 *_SUMMARY.md
@@ -177,7 +173,6 @@ gpw_data.db
 *_config.json
 rules_config*.json
 scanner_configs.json
-tickers_config.json
 
 # Ignoruj pliki testowe
 webtest_*.txt

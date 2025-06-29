@@ -3,6 +3,21 @@ set -e
 
 echo "🚀 Starting GPW Investor Application..."
 
+# Validate required environment variables
+echo "🔍 Validating environment variables..."
+if [ -z "$DB_HOST" ] || [ -z "$DB_USER" ] || [ -z "$DB_PASSWORD" ]; then
+    echo "❌ Missing required database environment variables!"
+    echo "Required: DB_HOST, DB_USER, DB_PASSWORD"
+    echo "Check your .env file exists and has correct values."
+    exit 1
+fi
+
+if [ -z "$SECRET_KEY" ] || [ "$SECRET_KEY" = "your-super-secret-key-change-in-production" ]; then
+    echo "⚠️ WARNING: Using default SECRET_KEY! Change it in .env for production!"
+fi
+
+echo "✅ Environment variables validated"
+
 # Wait for PostgreSQL to be ready
 echo "⏳ Waiting for PostgreSQL to be ready..."
 until pg_isready -h $DB_HOST -p $DB_PORT -U $DB_USER; do

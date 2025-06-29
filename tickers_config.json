@@ -1,0 +1,40 @@
+{
+    "active_tickers": [
+        "PGE",
+        "JSW",
+        "CCC",
+        "PKNORLEN",
+        "ALIOR",
+        "KRU"
+    ],
+    "scraping_settings": {
+        "interval_minutes": 3,
+        "use_selenium": true,
+        "headless": true,
+        "max_retries": 3,
+        "delay_between_tickers": [
+            3,
+            7
+        ],
+        "delay_between_retries": [
+            2,
+            5
+        ]
+    },
+    "backup_tickers": [
+        "ALIOR",
+        "ASSECOPOL",
+        "BZWBK",
+        "CYFRPLSAT",
+        "DINOPL",
+        "EUROCASH",
+        "KERNEL",
+        "LOTOS",
+        "MBANK",
+        "ORANGEPL",
+        "PEKAO",
+        "PEPCO",
+        "PLAY",
+        "TAURONPE"
+    ]
+}
