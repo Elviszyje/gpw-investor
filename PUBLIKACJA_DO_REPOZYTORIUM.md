@@ -101,8 +101,8 @@ git commit -m "feat: initial GPW Investor release with Docker containerization
 
 #### 3. Połącz z GitHub
 ```bash
-# Dodaj remote (zastąp USERNAME i REPO_NAME)
-git remote add origin https://github.com/USERNAME/REPO_NAME.git
+# Dodaj remote (gotowe dla tego repozytorium)
+git remote add origin https://github.com/Elviszyje/gpw-investor.git
 
 # Sprawdź połączenie
 git remote -v
@@ -171,7 +171,7 @@ git status
 ```bash
 # Clone test w nowym folderze
 cd /tmp
-git clone https://github.com/USERNAME/REPO_NAME.git
+git clone https://github.com/Elviszyje/gpw-investor.git
 cd REPO_NAME
 
 # Test uruchomienia
@@ -183,7 +183,7 @@ docker-compose up -d
 ### 2. Aktualizuj README.md
 ```bash
 # Zastąp placeholder URL w README.md
-sed -i 's/<repo>/https:\/\/github.com\/USERNAME\/REPO_NAME.git/g' README.md
+sed -i 's/<repo>/https:\/\/github.com\/Elviszyje\/gpw-investor.git/g' README.md
 git add README.md
 git commit -m "docs: update repository URL in README"
 git push
@@ -236,12 +236,12 @@ git push -u origin feature/new-scraper
 git init
 git add .
 git commit -m "feat: initial GPW Investor release"
-git remote add origin https://github.com/USERNAME/REPO_NAME.git
+git remote add origin https://github.com/Elviszyje/gpw-investor.git
 git branch -M main
 git push -u origin main
 
 # Update README z prawdziwym URL
-sed -i 's/<repo>/https:\/\/github.com\/USERNAME\/REPO_NAME.git/g' README.md
+sed -i 's/<repo>/https:\/\/github.com\/Elviszyje\/gpw-investor.git/g' README.md
 git add README.md
 git commit -m "docs: update repository URL"
 git push

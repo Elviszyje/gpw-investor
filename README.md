@@ -11,7 +11,7 @@
 
 ```bash
 # 1. Pobierz/rozpakuj projekt
-git clone <repo> && cd gpw_investor
+git clone https://github.com/Elviszyje/gpw-investor.git && cd gpw-investor
 # LUB rozpakuj archiwum ZIP/TAR.GZ
 
 # 2. Uruchom z Docker

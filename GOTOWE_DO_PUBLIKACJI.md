@@ -27,8 +27,8 @@ Projekt GPW Investor jest **gotowy do publikacji** w repozytorium Git!
 
 2. **Wypchnij kod (skopiuj i wklej):**
    ```bash
-   # Dodaj remote (zastąp YOUR_USERNAME)
-   git remote add origin https://github.com/YOUR_USERNAME/gpw-investor.git
+   # Dodaj remote (zastąp jeśli używasz innej nazwy)
+   git remote add origin https://github.com/Elviszyje/gpw-investor.git
    
    # Wypchnij kod
    git push -u origin main
@@ -40,7 +40,7 @@ Projekt GPW Investor jest **gotowy do publikacji** w repozytorium Git!
 3. **Zaktualizuj README:**
    ```bash
    # Zamień placeholder na prawdziwy URL
-   sed -i '' 's/<repo>/https:\/\/github.com\/YOUR_USERNAME\/gpw-investor.git/g' README.md
+   sed -i '' 's/<repo>/https:\/\/github.com\/Elviszyje\/gpw-investor.git/g' README.md
    
    git add README.md
    git commit -m "docs: update repository URL in README"
@@ -123,7 +123,7 @@ Projekt GPW Investor jest **gotowy do publikacji** w repozytorium Git!
 ```bash
 # Test w nowym folderze
 cd /tmp
-git clone https://github.com/YOUR_USERNAME/gpw-investor.git
+git clone https://github.com/Elviszyje/gpw-investor.git
 cd gpw-investor
 
 # Konfiguracja
@@ -173,7 +173,7 @@ git push --tags
 Twój projekt **GPW Investor** jest gotowy do świata! 
 
 **🔗 Po publikacji będzie dostępny pod:**
-- GitHub: `https://github.com/YOUR_USERNAME/gpw-investor`
+- GitHub: `https://github.com/Elviszyje/gpw-investor`
 - Clone: `git clone <url> && cd gpw-investor`
 - Uruchomienie: `docker-compose up -d`
 - Aplikacja: http://localhost:5001
