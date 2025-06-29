@@ -104,8 +104,13 @@ Desktop.ini
 *.p12
 
 # Ignoruj backup'y bazy danych
-*.sql
+backup*.sql
 *.dump
+
+# Ale zachowaj ważne skrypty SQL
+!init-schema.sql
+!fix-db-schema.sql
+!*-migration.sql
 
 # Ignoruj pliki konfiguracyjne IDE
 .vscode/settings.json
