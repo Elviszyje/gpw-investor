@@ -34,15 +34,44 @@ RUN ARCH=$(dpkg --print-architecture) \
         && echo "Note: Selenium scrapers may not work without Chrome"; \
     fi
 
-# Install ChromeDriver (only for amd64)
+# Install ChromeDriver (only for amd64) - Updated for modern Chrome versions
 RUN ARCH=$(dpkg --print-architecture) \
     && if [ "$ARCH" = "amd64" ]; then \
-        CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+') \
-        && CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION%%.*}") \
-        && wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip" \
-        && unzip /tmp/chromedriver.zip -d /usr/local/bin/ \
-        && chmod +x /usr/local/bin/chromedriver \
-        && rm /tmp/chromedriver.zip; \
+        CHROME_VERSION=$(google-chrome --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1) \
+        && CHROME_MAJOR_VERSION=$(echo $CHROME_VERSION | cut -d. -f1) \
+        && echo "Chrome version: $CHROME_VERSION (major: $CHROME_MAJOR_VERSION)" \
+        && if [ "$CHROME_MAJOR_VERSION" -ge "115" ]; then \
+            echo "Using Chrome for Testing API for ChromeDriver" \
+            && CHROMEDRIVER_URL=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/known-good-versions-with-downloads.json" \
+                | grep -A 10 -B 10 "\"version\": \"$CHROME_VERSION\"" \
+                | grep -A 5 "\"platform\": \"linux64\"" \
+                | grep "\"chromedriver\"" \
+                | grep -o "https://[^\"]*chromedriver-linux64.zip" | head -1) \
+            && if [ -n "$CHROMEDRIVER_URL" ]; then \
+                echo "Downloading ChromeDriver from: $CHROMEDRIVER_URL" \
+                && wget -O /tmp/chromedriver.zip "$CHROMEDRIVER_URL" \
+                && unzip /tmp/chromedriver.zip -d /tmp/ \
+                && mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/ \
+                && chmod +x /usr/local/bin/chromedriver \
+                && rm -rf /tmp/chromedriver.zip /tmp/chromedriver-linux64; \
+            else \
+                echo "ChromeDriver URL not found, trying latest stable" \
+                && LATEST_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE") \
+                && wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/${LATEST_VERSION}/chromedriver_linux64.zip" \
+                && unzip /tmp/chromedriver.zip -d /usr/local/bin/ \
+                && chmod +x /usr/local/bin/chromedriver \
+                && rm /tmp/chromedriver.zip; \
+            fi; \
+        else \
+            echo "Using legacy ChromeDriver API for older Chrome" \
+            && CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_MAJOR_VERSION}") \
+            && wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip" \
+            && unzip /tmp/chromedriver.zip -d /usr/local/bin/ \
+            && chmod +x /usr/local/bin/chromedriver \
+            && rm /tmp/chromedriver.zip; \
+        fi \
+        && echo "ChromeDriver installed successfully" \
+        && chromedriver --version; \
     else \
         echo "Skipping ChromeDriver installation on non-amd64 architecture: $ARCH"; \
     fi

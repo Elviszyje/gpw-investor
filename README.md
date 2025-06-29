@@ -14,11 +14,17 @@
 git clone https://github.com/Elviszyje/gpw-investor.git && cd gpw-investor
 # LUB rozpakuj archiwum ZIP/TAR.GZ
 
-# 2. Uruchom z Docker
-docker-compose up -d
+# 2. Uruchom z Docker (automatyczny wybór wersji)
+./build-docker.sh && docker-compose up -d
 
 # 3. Otwórz aplikację
 open http://localhost:5001
+```
+
+### 🚨 Problem z budowaniem?
+```bash
+# Szybka wersja bez Chrome (zalecana dla testów)
+docker build -f Dockerfile.simple -t gpw_investor . && docker-compose up -d
 ```
 
 ## 📋 Wymagania
@@ -216,6 +222,15 @@ curl http://localhost:5001/api/app/stats
 ## 🎯 Quick Commands
 
 ```bash
+# Automatyczne budowanie (wybór wersji)
+./build-docker.sh
+
+# Szybkie budowanie (bez Chrome)
+docker build -f Dockerfile.simple -t gpw_investor:simple . && docker-compose up -d
+
+# Budowanie pełnej wersji (z Chrome)
+docker build -f Dockerfile -t gpw_investor:full . && docker-compose up -d
+
 # Kompletna reinstalacja
 docker-compose down -v && docker system prune -f && docker-compose up -d
 

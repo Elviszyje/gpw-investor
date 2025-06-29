@@ -270,61 +270,74 @@ docker-compose exec gpw_app bash
 # Sprawdź pliki i konfigurację
 ```
 
-## 🔄 Aktualizacja Aplikacji
+## 🔧 Rozwiązywanie Problemów z Budowaniem
 
-### Jeśli otrzymasz nową wersję:
-```bash
-# Zatrzymaj obecną wersję
-docker-compose down
-
-# Zastąp pliki aplikacji (zachowaj .env i dane)
-# Zachowaj foldery: data/, logs/, models/, storage/
-
-# Uruchom z rebuild
-docker-compose build gpw_app
-docker-compose up -d
+### Problem: Błąd ChromeDriver na procesorach Intel
+Jeśli otrzymujesz błąd podczas instalacji ChromeDriver:
+```
+failed to solve: process "/bin/sh -c ARCH=$(dpkg --print-architecture) ... exit code: 8
 ```
 
-## 📞 Wsparcie
-
-### Gdzie szukać pomocy:
-1. **Logi**: `docker-compose logs` - zawsze sprawdź najpierw logi
-2. **Status**: `docker-compose ps` - sprawdź czy wszystkie usługi działają
-3. **Health check**: `curl http://localhost:5001/api/app/health`
-4. **Dokumentacja**: `DOCKER_DEPLOYMENT.md` - szczegółowa dokumentacja
-
-### Przydatne komendy diagnostyczne:
+**Rozwiązanie 1: Użyj skryptu budowania**
 ```bash
-# Sprawdź konfigurację
-docker-compose config
+# Automatyczny wybór wersji
+./build-docker.sh
 
-# Sprawdź zasoby
-docker stats
-
-# Sprawdź sieci Docker
-docker network ls
-
-# Sprawdź wolumeny
-docker volume ls
-
-# Pełne czyszczenie (UWAGA: usuwa wszystkie dane!)
-docker-compose down -v
-docker system prune -a
+# Wybierz opcję 2 (uproszczona wersja) lub 3 (automatyczna)
 ```
 
-## 🎯 Gotowe!
+**Rozwiązanie 2: Użyj uproszczonej wersji**
+```bash
+# Buduj bez Chrome/Selenium
+docker-compose build --build-arg DOCKERFILE=Dockerfile.simple
 
-Po pomyślnym uruchomieniu masz dostęp do:
-- **Aplikacja główna**: http://localhost:5001
-- **API Health**: http://localhost:5001/api/app/health
-- **Dane dzienne**: http://localhost:5001/dane
-- **Rekomendacje**: http://localhost:5001/recommendations_tracking
-- **Wiadomości**: http://localhost:5001/news
+# LUB bezpośrednio
+docker build -f Dockerfile.simple -t gpw_investor .
+```
 
-Aplikacja automatycznie:
-- ✅ Inicjalizuje bazę danych z przykładowymi danymi
-- ✅ Ładuje modele ML
-- ✅ Konfiguruje wszystkie usługi
-- ✅ Uruchamia health checks
+**Rozwiązanie 3: Ręczne dostosowanie**
+```bash
+# Edytuj docker-compose.yml
+nano docker-compose.yml
 
-**Powodzenia z GPW Investor! 🚀📈**
+# Zmień linię:
+# dockerfile: Dockerfile
+# na:
+# dockerfile: Dockerfile.simple
+```
+
+### Problem: Długie budowanie na starszych komputerach
+```bash
+# Użyj cache Docker
+docker build --cache-from gpw_investor .
+
+# LUB wyczyść i rozpocznij od nowa
+docker system prune -f
+docker-compose build --no-cache
+```
+
+### Problem: Brak pamięci podczas budowania
+```bash
+# Zwiększ limity Docker Desktop (Windows/Mac)
+# Settings > Resources > Memory (min 4GB)
+
+# Linux - sprawdź dostępną pamięć
+free -h
+df -h
+```
+
+## 📋 Wersje Dockerfile
+
+### Dockerfile (pełna wersja)
+- ✅ Pełna funkcjonalność z Chrome/Selenium
+- ✅ Web scraping z wszystkich portali
+- ❌ Większy rozmiar (~1.5GB)
+- ❌ Dłuższe budowanie
+- 🎯 **Zalecana dla produkcji**
+
+### Dockerfile.simple (uproszczona)
+- ✅ Szybkie budowanie (~500MB)
+- ✅ Wszystkie funkcje ML i API
+- ✅ Podstawowy web scraping
+- ❌ Brak Chrome/Selenium scrapers
+- 🎯 **Zalecana do testów i development**
