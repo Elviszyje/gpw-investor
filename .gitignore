@@ -165,9 +165,12 @@ PERFORMANCE_*.md
 # Ignoruj foldery deweloperskie
 migrations/
 scripts/
-config/
+# Configuration files (but keep Docker configs)
+!config/postgresql.conf
+!config/nginx.conf
 test_data/
 memory-bank/
+archive/
 
 # Ignoruj bazy danych deweloperskie
 *.db

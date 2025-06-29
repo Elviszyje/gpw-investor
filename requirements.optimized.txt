@@ -1,0 +1,52 @@
+# GPW Investor - Optimized Requirements
+# Updated: 2025-06-29
+# Python 3.11 compatible versions
+
+# Core Flask stack with optimizations
+flask==3.0.3
+werkzeug==3.1.3
+jinja2==3.1.6
+click==8.1.7
+itsdangerous==2.2.0
+markupsafe==3.0.2
+
+# Database drivers (optimized for performance)
+psycopg2-binary==2.9.10
+sqlalchemy==2.0.41
+
+# Data processing (optimized versions)
+pandas==2.3.0
+numpy==2.3.1
+
+# Job scheduling
+apscheduler==3.11.0
+
+# Web scraping stack
+requests==2.32.3
+beautifulsoup4==4.12.3
+selenium==4.28.0
+webdriver-manager==4.0.2
+feedparser==6.0.12
+
+# Machine Learning (stable versions with compatibility)
+scikit-learn==1.5.2
+joblib==1.4.2
+
+# Environment and configuration
+python-dotenv==1.1.0
+
+# Production server and monitoring
+gunicorn==23.0.0
+psutil==6.1.1
+
+# Optional: Additional optimizations
+# redis==5.2.1                    # For caching
+# prometheus-client==0.21.0       # For metrics
+# sentry-sdk[flask]==2.18.0       # For error tracking
+# celery==5.4.0                   # For background tasks
+
+# Development tools (optional)
+# pytest==8.3.3
+# pytest-flask==1.3.0
+# black==24.10.0
+# flake8==7.1.1

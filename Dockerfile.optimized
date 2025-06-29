@@ -1,0 +1,111 @@
+# GPW Investor - Optimized Multi-stage Dockerfile
+FROM python:3.11-slim as builder
+
+# Ustaw zmienne środowiskowe dla build stage
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Zainstaluj zależności do buildowania
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Skopiuj i zainstaluj zależności Python
+COPY requirements.txt /tmp/
+RUN pip install --no-cache-dir --user -r /tmp/requirements.txt
+
+# ================================================
+# PRODUCTION STAGE
+# ================================================
+FROM python:3.11-slim
+
+# Ustaw zmienne środowiskowe
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Ustaw katalog roboczy
+WORKDIR /app
+
+# Zainstaluj tylko runtime dependencies
+RUN apt-get update && apt-get install -y \
+    wget \
+    gnupg \
+    unzip \
+    curl \
+    libpq-dev \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Chrome dla Selenium (conditional na platformę)
+RUN ARCH=$(dpkg --print-architecture) \
+    && if [ "$ARCH" = "amd64" ]; then \
+        wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - \
+        && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
+        && apt-get update \
+        && apt-get install -y google-chrome-stable \
+        && rm -rf /var/lib/apt/lists/*; \
+    else \
+        echo "⚠️ Chrome not available for $ARCH architecture"; \
+    fi
+
+# Install ChromeDriver dla Selenium
+RUN ARCH=$(dpkg --print-architecture) \
+    && if [ "$ARCH" = "amd64" ]; then \
+        CHROME_DRIVER_VERSION=$(curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE) \
+        && wget -O /tmp/chromedriver.zip http://chromedriver.storage.googleapis.com/$CHROME_DRIVER_VERSION/chromedriver_linux64.zip \
+        && unzip /tmp/chromedriver.zip -d /opt/ \
+        && rm /tmp/chromedriver.zip \
+        && mv /opt/chromedriver /usr/bin/chromedriver \
+        && chown root:root /usr/bin/chromedriver \
+        && chmod +x /usr/bin/chromedriver; \
+    fi
+
+# Skopiuj Python packages z builder stage
+COPY --from=builder /root/.local /home/app/.local
+
+# Ustaw PATH dla user packages
+ENV PATH=/home/app/.local/bin:$PATH
+
+# Skopiuj pliki aplikacji (bez requirements.txt - już zainstalowane)
+COPY --chown=app:app . /app/
+
+# Usuń niepotrzebne pliki
+RUN rm -rf /app/.git /app/__pycache__ /app/.pytest_cache \
+    /app/virt /app/archive /app/*.log /app/.DS_Store \
+    /app/requirements.txt /app/build-docker.sh
+
+# Utwórz strukturę katalogów
+RUN mkdir -p /app/logs /app/data /app/storage/articles /app/models
+
+# Ustaw zmienne środowiskowe
+ENV FLASK_APP=app.py
+ENV FLASK_ENV=production
+ENV PYTHONPATH=/app
+
+# Ustaw użytkownika non-root dla bezpieczeństwa
+RUN useradd --create-home --shell /bin/bash app \
+    && chown -R app:app /app
+USER app
+
+# Eksponuj port
+EXPOSE 5000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:5000/api/app/health || exit 1
+
+# Skopiuj i ustaw skrypt entrypoint
+COPY --chown=root:root docker-entrypoint.sh /docker-entrypoint.sh
+USER root
+RUN chmod +x /docker-entrypoint.sh
+USER app
+
+# Ustaw entrypoint
+ENTRYPOINT ["/docker-entrypoint.sh"]
+
+# Domyślna komenda
+CMD ["python", "app.py"]
