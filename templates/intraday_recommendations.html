@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rekomendacje Intraday - GPW Investor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .hero-section {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+        }
+        .recommendation-buy {
+            background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%);
+            color: white;
+        }
+        .recommendation-sell {
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+            color: #333;
+        }
+        .recommendation-hold {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            color: #333;
+        }
+        .recommendation-wait {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            color: #333;
+        }
+        .intraday-badge {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: bold;
+            display: inline-block;
+            margin-bottom: 1rem;
+        }
+        .position-info {
+            background: rgba(255, 107, 107, 0.1);
+            border-left: 4px solid #ff6b6b;
+        }
+    </style>
+</head>
+<body>
+    <!-- Nagłówek -->
+    <div class="hero-section">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1><i class="fas fa-bolt"></i> GPW Investor</h1>
+                    <h3>🚀 Rekomendacje Intraday Trading</h3>
+                    <div class="intraday-badge">
+                        <i class="fas fa-clock"></i> Trading w ramach jednej sesji
+                    </div>
+                </div>
+                <div class="col-md-4 text-end">
+                    <a href="/" class="btn btn-light">
+                        <i class="fas fa-home"></i> Strona główna
+                    </a>
+                    <a href="/recommendations" class="btn btn-outline-light">
+                        <i class="fas fa-chart-line"></i> Długoterminowe
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alerty -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="container">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <!-- Formularz wyboru spółki -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>⚡ Analiza spółki - Trading Intraday</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="ticker" class="form-label">Wybierz spółkę:</label>
+                                <select name="ticker" class="form-control">
+                                    <option value="">-- Wybierz spółkę --</option>
+                                    {% for company in companies %}
+                                        <option value="{{ company.ticker }}" {% if selected_ticker == company.ticker %}selected{% endif %}>
+                                            {{ company.ticker }} - {{ company.name or company.ticker }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="new_ticker" class="form-label">Lub wpisz ticker:</label>
+                                <input type="text" name="new_ticker" class="form-control" placeholder="np. CDR" 
+                                       {% if selected_ticker %}value="{{ selected_ticker }}"{% endif %}>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">&nbsp;</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="has_position" id="has_position"
+                                           {% if has_position %}checked{% endif %}>
+                                    <label class="form-check-label" for="has_position">
+                                        <strong>Mam już pozycję</strong>
+                                    </label>
+                                </div>
+                                <input type="number" name="entry_price" class="form-control mt-2" placeholder="Cena wejścia"
+                                       step="0.01" {% if entry_price %}value="{{ entry_price }}"{% endif %}
+                                       {% if not has_position %}style="display:none"{% endif %} id="entry_price_input">
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                <label>&nbsp;</label>
+                                <button type="submit" class="btn btn-danger w-100">
+                                    <i class="fas fa-bolt"></i> Analizuj
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Wyniki analizy -->
+            {% if result %}
+            <div class="card">
+                <div class="card-header">
+                    <h5>⚡ Wyniki analizy intraday dla {{ result.ticker }}</h5>
+                    <small class="text-muted">{{ result.timestamp }}</small>
+                </div>
+                <div class="card-body">
+                    <!-- Status pozycji -->
+                    {% if result.has_position %}
+                    <div class="alert position-info">
+                        <h6><i class="fas fa-chart-line"></i> Aktywna pozycja:</h6>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <strong>Cena wejścia:</strong> {{ "%.2f"|format(result.entry_price) }} PLN
+                            </div>
+                            <div class="col-md-3">
+                                <strong>Cena aktualna:</strong> {{ "%.2f"|format(result.current_price) }} PLN
+                            </div>
+                            <div class="col-md-3">
+                                <strong>P&L:</strong> 
+                                <span class="{% if result.profit_loss > 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {{ "%.2f"|format(result.profit_loss) }}%
+                                </span>
+                            </div>
+                            <div class="col-md-3">
+                                <strong>Czas:</strong> {{ result.entry_time[:16] if result.entry_time else 'N/A' }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Finalna rekomendacja -->
+                    <div class="alert 
+                        {% if result.final_recommendation == 'BUY' or result.recommendation == 'BUY' %}recommendation-buy
+                        {% elif result.final_recommendation == 'SELL' or result.recommendation == 'SELL' %}recommendation-sell
+                        {% elif result.final_recommendation == 'HOLD' or result.recommendation == 'HOLD' %}recommendation-hold
+                        {% else %}recommendation-wait{% endif %} text-center">
+                        <h3>
+                            {% set rec = result.final_recommendation or result.recommendation %}
+                            {% if rec == 'BUY' %}
+                                ⚡ REKOMENDACJA INTRADAY: KUPUJ
+                            {% elif rec == 'SELL' %}
+                                💰 REKOMENDACJA INTRADAY: SPRZEDAJ
+                            {% elif rec == 'HOLD' %}
+                                🤝 REKOMENDACJA INTRADAY: TRZYMAJ
+                            {% else %}
+                                ⏸️ REKOMENDACJA INTRADAY: CZEKAJ
+                            {% endif %}
+                        </h3>
+                        {% if result.error %}
+                        <p class="mb-0"><small>{{ result.error }}</small></p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Analiza techniczna (jeśli dostępna) -->
+                    {% if result.technical_analysis %}
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h6>📊 Kluczowe wskaźniki intraday:</h6>
+                            <ul class="list-group">
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Cena aktualna:</span>
+                                    <strong>{{ "%.2f"|format(result.technical_analysis.current_price) }} PLN</strong>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Zmiana dzisiaj:</span>
+                                    <strong class="{% if result.technical_analysis.price_change_1d > 0 %}text-success{% else %}text-danger{% endif %}">
+                                        {{ "%.2f"|format(result.technical_analysis.price_change_1d) }}%
+                                    </strong>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>RSI (14):</span>
+                                    <strong>{{ "%.1f"|format(result.technical_analysis.rsi) }}</strong>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Wolumen (vs średnia):</span>
+                                    <strong>{{ "%.1f"|format((result.technical_analysis.current_volume / result.technical_analysis.avg_volume_20) if result.technical_analysis.avg_volume_20 > 0 else 0) }}x</strong>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>📈 Bollinger Bands:</h6>
+                            <ul class="list-group">
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Górne pasmo:</span>
+                                    <strong>{{ "%.2f"|format(result.technical_analysis.bb_upper) }} PLN</strong>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Środkowe (SMA 20):</span>
+                                    <strong>{{ "%.2f"|format(result.technical_analysis.bb_middle) }} PLN</strong>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Dolne pasmo:</span>
+                                    <strong>{{ "%.2f"|format(result.technical_analysis.bb_lower) }} PLN</strong>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Trend:</span>
+                                    <strong>{{ result.technical_analysis.trend }}</strong>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Sygnały kupna -->
+                    {% if result.buy_analysis and result.buy_analysis.signals %}
+                    <div class="mb-4">
+                        <h6>⚡ Sygnały kupna intraday (Confidence: {{ "%.1f"|format(result.buy_analysis.total_confidence) }}):</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Reguła</th>
+                                        <th>Wartość</th>
+                                        <th>Próg</th>
+                                        <th>Confidence</th>
+                                        <th>Szczegóły</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for signal in result.buy_analysis.signals %}
+                                    <tr>
+                                        <td><strong>{{ signal.name }}</strong></td>
+                                        <td>{{ "%.3f"|format(signal.value) }}</td>
+                                        <td>{{ "%.3f"|format(signal.threshold) if signal.threshold else 'N/A' }}</td>
+                                        <td><span class="badge bg-primary">{{ signal.confidence }}</span></td>
+                                        <td><small>{{ signal.details }}</small></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Sygnały sprzedaży -->
+                    {% if result.sell_analysis and result.sell_analysis.signals %}
+                    <div class="mb-4">
+                        <h6>💰 Sygnały sprzedaży intraday (Confidence: {{ "%.1f"|format(result.sell_analysis.total_confidence) }}):</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Reguła</th>
+                                        <th>Wartość</th>
+                                        <th>Próg</th>
+                                        <th>Confidence</th>
+                                        <th>Szczegóły</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for signal in result.sell_analysis.signals %}
+                                    <tr>
+                                        <td><strong>{{ signal.name }}</strong></td>
+                                        <td>{{ "%.3f"|format(signal.value) }}</td>
+                                        <td>{{ "%.3f"|format(signal.threshold) if signal.threshold else 'N/A' }}</td>
+                                        <td><span class="badge bg-warning">{{ signal.confidence }}</span></td>
+                                        <td><small>{{ signal.details }}</small></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Brak sygnałów -->
+                    {% if result.buy_analysis and result.sell_analysis and not result.buy_analysis.signals and not result.sell_analysis.signals %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Brak aktywnych sygnałów intraday dla {{ result.ticker }}.
+                    </div>
+                    {% endif %}
+
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Informacje o systemie intraday -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h6>ℹ️ System rekomendacji intraday</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>⚡ Sygnały kupna intraday:</h6>
+                            <ul class="small">
+                                <li>Spadek -2.5% + wolumen 1.8x (szybkie odbicie)</li>
+                                <li>RSI < 35 (agresywne wyprzedanie)</li>
+                                <li>Odwrócenie momentum z wolumenem</li>
+                                <li>Odbicie od dolnego Bollinger Band</li>
+                                <li>Szybkie przecięcie MACD</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>💰 Sygnały sprzedaży intraday:</h6>
+                            <ul class="small">
+                                <li>Szybki zysk 1.5% (max 3h)</li>
+                                <li>Wyjście 30min przed końcem sesji</li>
+                                <li>Ciasny stop loss -1.5%</li>
+                                <li>RSI > 65 (agresywne wykupienie)</li>
+                                <li>Opór na górnym Bollinger Band</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="alert alert-warning mt-3">
+                        <strong><i class="fas fa-exclamation-triangle"></i> Uwagi intraday:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li>System działa tylko w godzinach notowań (9:00-17:00)</li>
+                            <li>Wszystkie pozycje zamykane przed końcem sesji</li>
+                            <li>Wyższe progi confidence dla bezpieczeństwa</li>
+                            <li>Maksymalny czas trzymania pozycji: 3 godziny</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// Pokaż/ukryj pole ceny wejścia
+document.getElementById('has_position').addEventListener('change', function() {
+    const entryPriceInput = document.getElementById('entry_price_input');
+    if (this.checked) {
+        entryPriceInput.style.display = 'block';
+    } else {
+        entryPriceInput.style.display = 'none';
+        entryPriceInput.value = '';
+    }
+});
+</script>
+</body>
+</html>

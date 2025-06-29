@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skanowanie Rynku Intraday - GPW Investor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .hero-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+        }
+        .scan-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .scan-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .recommendation-buy {
+            border-left: 4px solid #28a745;
+            background: rgba(40, 167, 69, 0.1);
+        }
+        .recommendation-sell {
+            border-left: 4px solid #dc3545;
+            background: rgba(220, 53, 69, 0.1);
+        }
+        .confidence-bar {
+            height: 8px;
+            border-radius: 4px;
+            background: #e9ecef;
+            overflow: hidden;
+        }
+        .confidence-fill {
+            height: 100%;
+            border-radius: 4px;
+        }
+        .session-status {
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+        .session-active {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+        .session-inactive {
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <!-- Nagłówek -->
+    <div class="hero-section">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1><i class="fas fa-search"></i> GPW Investor</h1>
+                    <h3>🔍 Skanowanie Rynku Intraday</h3>
+                    <p class="mb-0">Znajdź najlepsze okazje tradingowe w czasie rzeczywistym</p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <a href="/" class="btn btn-light">
+                        <i class="fas fa-home"></i> Strona główna
+                    </a>
+                    <a href="{{ url_for('import_config.intraday_config') }}" class="btn btn-outline-light">
+                        <i class="fas fa-cogs"></i> Konfiguracje
+                    </a>
+                    <a href="/intraday_recommendations" class="btn btn-outline-light">
+                        <i class="fas fa-bolt"></i> Pojedyncza analiza
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alerty -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="container">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+<div class="container mt-4">
+    <!-- Status sesji -->
+    {% if session_summary %}
+    <div class="session-status {{ 'session-active' if session_summary.session_active else 'session-inactive' }}">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h5 class="mb-1">
+                    <i class="fas fa-clock"></i> 
+                    Status sesji: {{ 'AKTYWNA' if session_summary.session_active else 'NIEAKTYWNA' }}
+                </h5>
+                <small>
+                    {% if session_summary.session_active %}
+                        {% if session_summary.session_near_end %}
+                            ⚠️ Sesja kończy się wkrótce - zamykaj pozycje
+                        {% else %}
+                            ✅ Pełna sesja tradingowa - szukaj okazji
+                        {% endif %}
+                    {% else %}
+                        💤 Poza godzinami notowań (9:00-17:00)
+                    {% endif %}
+                </small>
+            </div>
+            <div class="col-md-4 text-end">
+                <strong>{{ session_summary.timestamp[:16] }}</strong>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Formularz skanowania -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>🔍 Opcje skanowania rynku</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                <!-- Podstawowe opcje -->
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <label for="limit" class="form-label">Liczba wyników:</label>
+                        <select name="limit" class="form-control">
+                            <option value="5" {% if limit == 5 %}selected{% endif %}>Top 5</option>
+                            <option value="10" {% if limit == 10 %}selected{% endif %}>Top 10</option>
+                            <option value="15" {% if limit == 15 %}selected{% endif %}>Top 15</option>
+                            <option value="20" {% if limit == 20 %}selected{% endif %}>Top 20</option>
+                            <option value="30" {% if limit == 30 %}selected{% endif %}>Top 30</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">&nbsp;</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="scan_all" id="scan_all"
+                                   {% if scan_all %}checked{% endif %} onchange="toggleAdvancedOptions()">
+                            <label class="form-check-label" for="scan_all">
+                                <strong>Skanuj wszystkie spółki</strong>
+                                <br><small class="text-muted">Aktywuje zaawansowane opcje</small>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label>&nbsp;</label>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-search"></i> Skanuj rynek
+                        </button>
+                    </div>
+                    <div class="col-md-2 mb-3">
+                        <label>&nbsp;</label>
+                        <button type="button" class="btn btn-outline-info w-100" onclick="refreshMonitoring()">
+                            <i class="fas fa-sync"></i> Odśwież
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Zaawansowane opcje (ukryte domyślnie) -->
+                <div id="advanced-options" class="border-top pt-3 mt-3" style="{% if not scan_all %}display: none;{% endif %}">
+                    <h6 class="text-muted mb-3">⚙️ Zaawansowane parametry skanera</h6>
+                    
+                    <div class="row">
+                        <!-- Parametry wydajności -->
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header py-2">
+                                    <h6 class="mb-0">🚀 Wydajność</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <label for="max_workers" class="form-label">Liczba wątków:</label>
+                                            <select name="max_workers" class="form-control">
+                                                <option value="2" {% if max_workers == 2 %}selected{% endif %}>2 (wolne)</option>
+                                                <option value="3" {% if max_workers == 3 %}selected{% endif %}>3 (średnie)</option>
+                                                <option value="5" {% if max_workers == 5 or not max_workers %}selected{% endif %}>5 (szybkie)</option>
+                                                <option value="8" {% if max_workers == 8 %}selected{% endif %}>8 (bardzo szybkie)</option>
+                                                <option value="10" {% if max_workers == 10 %}selected{% endif %}>10 (maksymalne)</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-6">
+                                            <label for="max_companies" class="form-label">Maks. spółek:</label>
+                                            <select name="max_companies" class="form-control">
+                                                <option value="20" {% if max_companies == 20 %}selected{% endif %}>20</option>
+                                                <option value="30" {% if max_companies == 30 %}selected{% endif %}>30</option>
+                                                <option value="50" {% if max_companies == 50 or not max_companies %}selected{% endif %}>50</option>
+                                                <option value="100" {% if max_companies == 100 %}selected{% endif %}>100</option>
+                                                <option value="200" {% if max_companies == 200 %}selected{% endif %}>200 (wszystkie)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Filtry -->
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header py-2">
+                                    <h6 class="mb-0">🎯 Filtry</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <label for="min_buy_confidence" class="form-label">Min. pewność BUY (%):</label>
+                                            <input type="number" name="min_buy_confidence" class="form-control" 
+                                                   value="{{ min_buy_confidence or 0 }}" min="0" max="100" step="0.1">
+                                        </div>
+                                        <div class="col-6">
+                                            <label for="min_sell_confidence" class="form-label">Min. pewność SELL (%):</label>
+                                            <input type="number" name="min_sell_confidence" class="form-control" 
+                                                   value="{{ min_sell_confidence or 0 }}" min="0" max="100" step="0.1">
+                                        </div>
+                                    </div>
+                                    <div class="row mt-2">
+                                        <div class="col-6">
+                                            <label for="filter_recommendation" class="form-label">Typ sygnału:</label>
+                                            <select name="filter_recommendation" class="form-control">
+                                                <option value="ALL" {% if filter_recommendation == "ALL" or not filter_recommendation %}selected{% endif %}>Wszystkie</option>
+                                                <option value="BUY" {% if filter_recommendation == "BUY" %}selected{% endif %}>Tylko BUY</option>
+                                                <option value="SELL" {% if filter_recommendation == "SELL" %}selected{% endif %}>Tylko SELL</option>
+                                                <option value="WAIT" {% if filter_recommendation == "WAIT" %}selected{% endif %}>Tylko WAIT</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-6">
+                                            <label for="sort_by" class="form-label">Sortowanie:</label>
+                                            <select name="sort_by" class="form-control">
+                                                <option value="confidence" {% if sort_by == "confidence" or not sort_by %}selected{% endif %}>Pewność</option>
+                                                <option value="price_change" {% if sort_by == "price_change" %}selected{% endif %}>Zmiana ceny</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Parametry analizy technicznej -->
+                    <div class="row mt-3">
+                        <!-- Parametry spadku ceny -->
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header py-2">
+                                    <h6 class="mb-0">📉 Analiza spadków</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" name="enable_price_drop_analysis" 
+                                               {% if enable_price_drop_analysis is not defined or enable_price_drop_analysis %}checked{% endif %}>
+                                        <label class="form-check-label">Aktywuj analizę spadków</label>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <label class="form-label">Próg spadku (%):</label>
+                                            <input type="number" name="price_drop_threshold" class="form-control" 
+                                                   value="{{ price_drop_threshold or 2.5 }}" min="0.1" max="20" step="0.1">
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="form-label">Przedział (min):</label>
+                                            <select name="price_drop_timeframe" class="form-control">
+                                                <option value="15" {% if price_drop_timeframe == 15 %}selected{% endif %}>15 min</option>
+                                                <option value="30" {% if price_drop_timeframe == 30 or not price_drop_timeframe %}selected{% endif %}>30 min</option>
+                                                <option value="60" {% if price_drop_timeframe == 60 %}selected{% endif %}>60 min</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Wskaźniki techniczne -->
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header py-2">
+                                    <h6 class="mb-0">📊 Wskaźniki</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" name="enable_rsi" 
+                                               {% if enable_rsi is not defined or enable_rsi %}checked{% endif %}>
+                                        <label class="form-check-label">RSI</label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" name="enable_bollinger" 
+                                               {% if enable_bollinger is not defined or enable_bollinger %}checked{% endif %}>
+                                        <label class="form-check-label">Bollinger Bands</label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" name="enable_macd" 
+                                               {% if enable_macd is not defined or enable_macd %}checked{% endif %}>
+                                        <label class="form-check-label">MACD</label>
+                                    </div>
+                                    <small class="text-muted">Szczegółowe ustawienia w <a href="{{ url_for('import_config.intraday_config') }}">panelu konfiguracji</a></small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Weryfikacja komunikatów -->
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header py-2">
+                                    <h6 class="mb-0">📰 Komunikaty</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" name="enable_news_verification" 
+                                               {% if enable_news_verification %}checked{% endif %}>
+                                        <label class="form-check-label">Weryfikuj komunikaty</label>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <label class="form-label">Przedział:</label>
+                                            <select name="news_timeframe" class="form-control">
+                                                <option value="4" {% if news_timeframe == 4 %}selected{% endif %}>4h</option>
+                                                <option value="12" {% if news_timeframe == 12 %}selected{% endif %}>12h</option>
+                                                <option value="24" {% if news_timeframe == 24 or not news_timeframe %}selected{% endif %}>24h</option>
+                                                <option value="48" {% if news_timeframe == 48 %}selected{% endif %}>48h</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="form-label">Strategia:</label>
+                                            <select name="news_strategy" class="form-control">
+                                                <option value="neutral" {% if news_strategy == "neutral" or not news_strategy %}selected{% endif %}>Neutralna</option>
+                                                <option value="require_news" {% if news_strategy == "require_news" %}selected{% endif %}>Wymagaj</option>
+                                                <option value="avoid_news" {% if news_strategy == "avoid_news" %}selected{% endif %}>Unikaj</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Podpowiedzi i szybkie konfiguracje -->
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <div class="alert alert-info">
+                                <h6><i class="fas fa-lightbulb"></i> Wskazówki:</h6>
+                                <ul class="mb-0">
+                                    <li><strong>Liczba wątków:</strong> Więcej wątków = szybsze skanowanie</li>
+                                    <li><strong>Filtry pewności:</strong> Wyższe wartości = pewniejsze sygnały</li>
+                                    <li><strong>Typ sygnału:</strong> Filtruj po BUY/SELL</li>
+                                    <li><strong>Komunikaty:</strong> Wpływ na pewność sygnałów</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header py-2">
+                                    <h6 class="mb-0">⚡ Szybkie konfiguracje</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="d-grid gap-2">
+                                        <button type="button" class="btn btn-outline-success btn-sm" onclick="setQuickConfig('conservative')">
+                                            🛡️ Konserwatywna (2 wątki, 20 spółek)
+                                        </button>
+                                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="setQuickConfig('balanced')">
+                                            ⚖️ Zrównoważona (5 wątków, 50 spółek)
+                                        </button>
+                                        <button type="button" class="btn btn-outline-warning btn-sm" onclick="setQuickConfig('aggressive')">
+                                            🚀 Agresywna (8 wątków, 100 spółek)
+                                        </button>
+                                        <button type="button" class="btn btn-outline-info btn-sm" onclick="setQuickConfig('buy_only')">
+                                            💰 Tylko sygnały BUY
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Wyniki skanowania -->
+    {% if results %}
+    <div class="card">
+        <div class="card-header">
+            <h5>🎯 Wyniki skanowania ({{ results|length }} okazji)</h5>
+        </div>
+        <div class="card-body">
+            {% if results %}
+                <div class="row">
+                    {% for result in results %}
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card scan-card h-100 {% if result.final_recommendation == 'BUY' or result.recommendation == 'BUY' %}recommendation-buy{% elif result.final_recommendation == 'SELL' or result.recommendation == 'SELL' %}recommendation-sell{% endif %}">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h6 class="card-title mb-0">
+                                        <strong>{{ result.ticker }}</strong>
+                                    </h6>
+                                    <span class="badge {% if result.final_recommendation == 'BUY' or result.recommendation == 'BUY' %}bg-success{% elif result.final_recommendation == 'SELL' or result.recommendation == 'SELL' %}bg-danger{% else %}bg-warning{% endif %}">
+                                        {{ result.final_recommendation or result.recommendation }}
+                                    </span>
+                                </div>
+                                
+                                {% if result.technical_analysis %}
+                                <div class="small mb-2">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Cena:</span>
+                                        <strong>{{ "%.2f"|format(result.technical_analysis.current_price) }} PLN</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span>Zmiana:</span>
+                                        <strong class="{% if result.technical_analysis.price_change_1d > 0 %}text-success{% else %}text-danger{% endif %}">
+                                            {{ "%.1f"|format(result.technical_analysis.price_change_1d) }}%
+                                        </strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span>RSI:</span>
+                                        <strong>{{ "%.0f"|format(result.technical_analysis.rsi) }}</strong>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                
+                                <!-- Confidence bars -->
+                                {% if result.buy_analysis and result.buy_analysis.total_confidence > 0 %}
+                                <div class="mb-2">
+                                    <small>Sygnały kupna: {{ result.buy_analysis.signal_count }}</small>
+                                    <div class="confidence-bar">
+                                        <div class="confidence-fill bg-success" 
+                                             style="width: {{ (result.buy_analysis.total_confidence / 3.0 * 100)|min(100) }}%"></div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                
+                                {% if result.sell_analysis and result.sell_analysis.total_confidence > 0 %}
+                                <div class="mb-2">
+                                    <small>Sygnały sprzedaży: {{ result.sell_analysis.signal_count }}</small>
+                                    <div class="confidence-bar">
+                                        <div class="confidence-fill bg-danger" 
+                                             style="width: {{ (result.sell_analysis.total_confidence / 3.0 * 100)|min(100) }}%"></div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                
+                                <div class="text-end">
+                                    <a href="/intraday_recommendations?ticker={{ result.ticker }}" 
+                                       class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-eye"></i> Szczegóły
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> Brak okazji intraday w tym momencie.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Instrukcja -->
+    {% if not results %}
+    <div class="card">
+        <div class="card-header">
+            <h6>ℹ️ Jak korzystać ze skanowania rynku</h6>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>🔍 Opcje skanowania:</h6>
+                    <ul class="small">
+                        <li><strong>Top 5-20:</strong> Najlepsze okazje z priorytetowych spółek</li>
+                        <li><strong>Skanuj wszystkie:</strong> Analiza wszystkich spółek w bazie (wolniejsze)</li>
+                        <li><strong>Odśwież:</strong> Aktualne dane w czasie rzeczywistym</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h6>📊 Interpretacja wyników:</h6>
+                    <ul class="small">
+                        <li><strong>Zielone karty:</strong> Sygnały kupna (BUY)</li>
+                        <li><strong>Czerwone karty:</strong> Sygnały sprzedaży (SELL)</li>
+                        <li><strong>Paski confidence:</strong> Siła sygnału</li>
+                        <li><strong>Szczegóły:</strong> Pełna analiza dla spółki</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="alert alert-warning mt-3">
+                <strong><i class="fas fa-exclamation-triangle"></i> Uwaga:</strong>
+                Skanowanie równoległe może obciążyć system. W godzinach szczytu używaj opcji "Top 10" zamiast "Skanuj wszystkie".
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+function toggleAdvancedOptions() {
+    const scanAllCheckbox = document.getElementById('scan_all');
+    const advancedOptions = document.getElementById('advanced-options');
+    
+    if (scanAllCheckbox.checked) {
+        advancedOptions.style.display = 'block';
+        // Animacja pojawiania się
+        advancedOptions.style.opacity = '0';
+        setTimeout(() => {
+            advancedOptions.style.transition = 'opacity 0.3s ease';
+            advancedOptions.style.opacity = '1';
+        }, 10);
+    } else {
+        advancedOptions.style.display = 'none';
+    }
+}
+
+function refreshMonitoring() {
+    // Pokaż spinner/loading
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Odświeżanie...';
+    button.disabled = true;
+    
+    // Odśwież stronę po 1 sekundzie
+    setTimeout(() => {
+        window.location.reload();
+    }, 1000);
+}
+
+// Predefined configurations for quick setup
+function setQuickConfig(configName) {
+    const configs = {
+        'conservative': {
+            max_workers: 2,
+            max_companies: 20,
+            min_buy_confidence: 2.0,
+            min_sell_confidence: 2.0,
+            filter_recommendation: 'ALL'
+        },
+        'balanced': {
+            max_workers: 5,
+            max_companies: 50,
+            min_buy_confidence: 1.0,
+            min_sell_confidence: 1.0,
+            filter_recommendation: 'ALL'
+        },
+        'aggressive': {
+            max_workers: 8,
+            max_companies: 100,
+            min_buy_confidence: 0.0,
+            min_sell_confidence: 0.0,
+            filter_recommendation: 'ALL'
+        },
+        'buy_only': {
+            max_workers: 5,
+            max_companies: 50,
+            min_buy_confidence: 1.5,
+            min_sell_confidence: 0.0,
+            filter_recommendation: 'BUY'
+        }
+    };
+    
+    const config = configs[configName];
+    if (config) {
+        // Zastosuj konfigurację
+        document.querySelector('select[name="max_workers"]').value = config.max_workers;
+        document.querySelector('select[name="max_companies"]').value = config.max_companies;
+        document.querySelector('input[name="min_buy_confidence"]').value = config.min_buy_confidence;
+        document.querySelector('input[name="min_sell_confidence"]').value = config.min_sell_confidence;
+        document.querySelector('select[name="filter_recommendation"]').value = config.filter_recommendation;
+        
+        // Pokaż powiadomienie
+        showQuickConfigNotification(configName);
+    }
+}
+
+function showQuickConfigNotification(configName) {
+    // Utwórz i pokaż alert
+    const alertHtml = `
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="fas fa-check-circle"></i> Zastosowano konfigurację: <strong>${configName}</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    
+    // Wstaw alert na górę formularza
+    const form = document.querySelector('form');
+    form.insertAdjacentHTML('afterbegin', alertHtml);
+    
+    // Automatycznie ukryj po 3 sekundach
+    setTimeout(() => {
+        const alert = form.querySelector('.alert');
+        if (alert) {
+            alert.remove();
+        }
+    }, 3000);
+}
+
+// Auto-refresh co 30 sekund jeśli sesja aktywna
+{% if session_summary and session_summary.session_active %}
+setInterval(() => {
+    // Tylko jeśli nie ma aktywnych wyników (nie przeszkadzać w przeglądaniu)
+    if (!document.querySelector('.scan-card')) {
+        window.location.reload();
+    }
+}, 30000);
+{% endif %}
+
+// Inicjalizacja przy ładowaniu strony
+document.addEventListener('DOMContentLoaded', function() {
+    // Ustaw stan zaawansowanych opcji
+    toggleAdvancedOptions();
+});
+</script>
+</body>
+</html>

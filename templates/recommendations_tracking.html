@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rekomendacje z Trackingiem - GPW Investor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .hero-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+        }
+        .recommendation-card {
+            border-left: 5px solid;
+            margin-bottom: 1rem;
+            transition: transform 0.2s;
+        }
+        .recommendation-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .rec-buy {
+            border-left-color: #28a745;
+        }
+        .rec-sell {
+            border-left-color: #dc3545;
+        }
+        .rec-wait {
+            border-left-color: #ffc107;
+        }
+        .rec-skip {
+            border-left-color: #6c757d;
+        }
+        .tracking-chart {
+            height: 200px;
+        }
+        .profit-positive {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .profit-negative {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .status-active {
+            background: linear-gradient(45deg, #007bff, #6610f2);
+            color: white;
+        }
+        .status-closed {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+        }
+        .confidence-bar {
+            height: 8px;
+            border-radius: 4px;
+            background: #e9ecef;
+            overflow: hidden;
+        }
+        .confidence-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+        .confidence-buy {
+            background: linear-gradient(90deg, #28a745, #20c997);
+        }
+        .confidence-sell {
+            background: linear-gradient(90deg, #dc3545, #fd7e14);
+        }
+        .tracking-timeline {
+            position: relative;
+            padding-left: 2rem;
+        }
+        .tracking-timeline::before {
+            content: '';
+            position: absolute;
+            left: 0.5rem;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #dee2e6;
+        }
+        .tracking-point {
+            position: relative;
+            padding: 0.5rem 0;
+        }
+        .tracking-point::before {
+            content: '';
+            position: absolute;
+            left: -0.75rem;
+            top: 0.75rem;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #007bff;
+            border: 3px solid white;
+            box-shadow: 0 0 0 1px #dee2e6;
+        }
+        .tracking-point.profit::before {
+            background: #28a745;
+        }
+        .tracking-point.loss::before {
+            background: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <!-- Nagłówek -->
+    <div class="hero-section">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1><i class="fas fa-chart-line"></i> GPW Investor</h1>
+                    <h3>📊 Rekomendacje z Trackingiem Cen</h3>
+                    <p class="mb-0">Monitorowanie wyników rekomendacji w czasie rzeczywistym</p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <a href="/" class="btn btn-light me-2">
+                        <i class="fas fa-home"></i> Strona główna
+                    </a>
+                    <button class="btn btn-outline-light" onclick="refreshData()">
+                        <i class="fas fa-sync-alt"></i> Odśwież
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Statystyki -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="fas fa-list text-primary"></i> Łącznie
+                        </h5>
+                        <h3 class="text-primary" id="total-count">-</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="fas fa-play-circle text-info"></i> Aktywne
+                        </h5>
+                        <h3 class="text-info" id="active-count">-</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="fas fa-check-circle text-success"></i> Zamknięte
+                        </h5>
+                        <h3 class="text-success" id="closed-count">-</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="fas fa-percentage text-warning"></i> Sukces
+                        </h5>
+                        <h3 class="text-warning" id="success-rate">-</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lista rekomendacji -->
+        <div id="recommendations-container">
+            <div class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Ładowanie...</span>
+                </div>
+                <p class="mt-2">Ładowanie rekomendacji...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal szczegółów -->
+    <div class="modal fade" id="detailsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Szczegóły rekomendacji</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="modal-content">
+                    <!-- Dynamiczna zawartość -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let recommendations = [];
+
+        async function loadRecommendations() {
+            try {
+                const response = await fetch('/api/recommendations_with_tracking');
+                const data = await response.json();
+                
+                if (data.success) {
+                    recommendations = data.recommendations;
+                    updateStatistics();
+                    renderRecommendations();
+                } else {
+                    showError('Błąd ładowania danych: ' + data.error);
+                }
+            } catch (error) {
+                showError('Błąd połączenia: ' + error.message);
+            }
+        }
+
+        function updateStatistics() {
+            const total = recommendations.length;
+            const active = recommendations.filter(r => r.status === 'ACTIVE').length;
+            const closed = recommendations.filter(r => r.status === 'CLOSED').length;
+            const successful = recommendations.filter(r => r.result && r.result.success).length;
+            const successRate = closed > 0 ? Math.round((successful / closed) * 100) : 0;
+
+            document.getElementById('total-count').textContent = total;
+            document.getElementById('active-count').textContent = active;
+            document.getElementById('closed-count').textContent = closed;
+            document.getElementById('success-rate').textContent = successRate + '%';
+        }
+
+        function renderRecommendations() {
+            const container = document.getElementById('recommendations-container');
+            
+            if (recommendations.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center">
+                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                        <h4>Brak rekomendacji</h4>
+                        <p class="text-muted">Nie znaleziono rekomendacji z ostatnich 7 dni.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const html = recommendations.map(rec => createRecommendationCard(rec)).join('');
+            container.innerHTML = html;
+        }
+
+        function createRecommendationCard(rec) {
+            const recClass = `rec-${rec.recommendation.toLowerCase()}`;
+            const statusClass = rec.status === 'ACTIVE' ? 'status-active' : 'status-closed';
+            const ageText = Math.round(rec.age_hours * 10) / 10;
+            
+            // Oblicz aktualny P&L z trackingu lub wyniku końcowego
+            let currentPL = 0;
+            let currentPrice = rec.entry_price;
+            
+            if (rec.result) {
+                currentPL = rec.result.profit_loss_percent;
+                currentPrice = rec.entry_price * (1 + currentPL / 100);
+            } else if (rec.tracking.length > 0) {
+                const latest = rec.tracking[rec.tracking.length - 1];
+                currentPL = latest.profit_loss_percent;
+                currentPrice = latest.price;
+            }
+
+            const plClass = currentPL >= 0 ? 'profit-positive' : 'profit-negative';
+            const plIcon = currentPL >= 0 ? 'fas fa-arrow-up' : 'fas fa-arrow-down';
+
+            // Confidence bars
+            const buyConfWidth = Math.min(rec.buy_confidence * 20, 100);
+            const sellConfWidth = Math.min(rec.sell_confidence * 20, 100);
+
+            return `
+                <div class="card recommendation-card ${recClass}">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h5 class="card-title mb-0">
+                                        <span class="badge ${statusClass} me-2">${rec.recommendation}</span>
+                                        <strong>${rec.ticker}</strong>
+                                    </h5>
+                                    <small class="text-muted">${ageText}h temu</small>
+                                </div>
+                                
+                                <div class="row mb-2">
+                                    <div class="col-sm-6">
+                                        <small class="text-muted">Cena wejścia:</small><br>
+                                        <strong>${rec.entry_price.toFixed(2)} PLN</strong>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <small class="text-muted">Aktualna cena:</small><br>
+                                        <strong class="${plClass}">
+                                            ${currentPrice.toFixed(2)} PLN
+                                            <i class="${plIcon}"></i> ${currentPL.toFixed(2)}%
+                                        </strong>
+                                    </div>
+                                </div>
+
+                                <div class="row mb-2">
+                                    <div class="col-sm-6">
+                                        <small class="text-muted">Buy Confidence:</small>
+                                        <div class="confidence-bar">
+                                            <div class="confidence-fill confidence-buy" style="width: ${buyConfWidth}%"></div>
+                                        </div>
+                                        <small>${rec.buy_confidence.toFixed(1)}</small>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <small class="text-muted">Sell Confidence:</small>
+                                        <div class="confidence-bar">
+                                            <div class="confidence-fill confidence-sell" style="width: ${sellConfWidth}%"></div>
+                                        </div>
+                                        <small>${rec.sell_confidence.toFixed(1)}</small>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                ${createTrackingMini(rec)}
+                                <div class="text-end mt-2">
+                                    <button class="btn btn-outline-primary btn-sm" onclick="showDetails(${rec.id})">
+                                        <i class="fas fa-chart-line"></i> Szczegóły
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function createTrackingMini(rec) {
+            if (rec.tracking.length === 0) {
+                return '<small class="text-muted">Brak trackingu</small>';
+            }
+
+            const points = rec.tracking.slice(0, 6).map(t => {
+                const isProfit = t.profit_loss_percent >= 0;
+                const pointClass = isProfit ? 'profit' : 'loss';
+                return `
+                    <div class="tracking-point ${pointClass}">
+                        <small>
+                            ${t.hours_after}h: <span class="${isProfit ? 'profit-positive' : 'profit-negative'}">
+                                ${t.profit_loss_percent.toFixed(2)}%
+                            </span>
+                        </small>
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <div class="tracking-timeline">
+                    ${points}
+                </div>
+            `;
+        }
+
+        function showDetails(recId) {
+            const rec = recommendations.find(r => r.id === recId);
+            if (!rec) return;
+
+            const modalContent = document.getElementById('modal-content');
+            modalContent.innerHTML = createDetailedView(rec);
+            
+            new bootstrap.Modal(document.getElementById('detailsModal')).show();
+        }
+
+        function createDetailedView(rec) {
+            const trackingTable = rec.tracking.map(t => `
+                <tr>
+                    <td>${t.hours_after}h</td>
+                    <td>${t.price.toFixed(2)} PLN</td>
+                    <td class="${t.profit_loss_percent >= 0 ? 'profit-positive' : 'profit-negative'}">
+                        ${t.profit_loss_percent.toFixed(2)}%
+                    </td>
+                    <td><small class="text-muted">${new Date(t.tracked_at).toLocaleString()}</small></td>
+                </tr>
+            `).join('');
+
+            const resultSection = rec.result ? `
+                <div class="alert ${rec.result.success ? 'alert-success' : 'alert-danger'}">
+                    <h6><i class="fas fa-flag-checkered"></i> Wynik końcowy:</h6>
+                    <strong>${rec.result.profit_loss_percent.toFixed(2)}%</strong> - 
+                    ${rec.result.success ? 'Sukces' : 'Porażka'} (${rec.result.exit_reason})
+                </div>
+            ` : '';
+
+            return `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Informacje podstawowe</h6>
+                        <table class="table table-sm">
+                            <tr><td>Ticker:</td><td><strong>${rec.ticker}</strong></td></tr>
+                            <tr><td>Rekomendacja:</td><td><span class="badge bg-primary">${rec.recommendation}</span></td></tr>
+                            <tr><td>Status:</td><td><span class="badge ${rec.status === 'ACTIVE' ? 'bg-info' : 'bg-success'}">${rec.status}</span></td></tr>
+                            <tr><td>Cena wejścia:</td><td>${rec.entry_price.toFixed(2)} PLN</td></tr>
+                            <tr><td>Target:</td><td>${rec.target_price ? rec.target_price.toFixed(2) + ' PLN' : 'N/A'}</td></tr>
+                            <tr><td>Stop Loss:</td><td>${rec.stop_loss ? rec.stop_loss.toFixed(2) + ' PLN' : 'N/A'}</td></tr>
+                            <tr><td>Sygnały:</td><td>${rec.signal_count}</td></tr>
+                            <tr><td>Utworzono:</td><td><small>${new Date(rec.created_at).toLocaleString()}</small></td></tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Tracking cen</h6>
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Czas</th>
+                                    <th>Cena</th>
+                                    <th>P&L</th>
+                                    <th>Data</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${trackingTable || '<tr><td colspan="4" class="text-center text-muted">Brak danych trackingu</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                ${resultSection}
+            `;
+        }
+
+        function showError(message) {
+            document.getElementById('recommendations-container').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i> ${message}
+                </div>
+            `;
+        }
+
+        function refreshData() {
+            document.getElementById('recommendations-container').innerHTML = `
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2">Odświeżanie danych...</p>
+                </div>
+            `;
+            loadRecommendations();
+        }
+
+        // Automatyczne odświeżanie co 30 sekund
+        setInterval(loadRecommendations, 30000);
+
+        // Załaduj dane przy starcie
+        loadRecommendations();
+    </script>
+</body>
+</html>

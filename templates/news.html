@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Newsy Finansowe - GPW Investor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .container-fluid {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            margin: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            overflow: hidden;
+            background-color: white;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+        }
+        .card-header {
+            border: none;
+            border-radius: 15px 15px 0 0 !important;
+            padding: 1.25rem;
+        }
+        .btn {
+            border-radius: 10px;
+            font-weight: 600;
+            padding: 0.75rem 1.5rem;
+            transition: all 0.3s ease;
+            border: none;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+        .form-control, .form-select {
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+            padding: 0.75rem 1rem;
+            transition: all 0.3s ease;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.25);
+        }
+        .news-item {
+            border-left: 4px solid #28a745;
+            margin-bottom: 1rem;
+            transition: all 0.3s ease;
+            background-color: white !important;
+        }
+        .news-item:hover {
+            border-left-color: #667eea;
+        }
+        .news-item.source-bankier {
+            border-left-color: #dc3545 !important;
+        }
+        .news-item.source-money {
+            border-left-color: #fd7e14 !important;
+        }
+        .news-item.source-parkiet {
+            border-left-color: #6f42c1 !important;
+        }
+        .news-item.source-other {
+            border-left-color: #6c757d !important;
+        }
+        .ticker-badge {
+            display: inline-block;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-right: 0.25rem;
+            margin-bottom: 0.25rem;
+        }
+        .source-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+        .source-badge.source-bankier { background-color: #dc3545; color: white; }
+        .source-badge.source-money { background-color: #fd7e14; color: white; }
+        .source-badge.source-parkiet { background-color: #6f42c1; color: white; }
+        .source-badge.source-other { background-color: #6c757d; color: white; }
+        .stats-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-left: 4px solid #667eea;
+        }
+        .filter-section {
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .content-preview {
+            color: #6c757d;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+        .publication-date {
+            color: #6c757d;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-4">
+        <!-- Breadcrumb -->
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('index') }}" class="text-decoration-none">
+                        <i class="fas fa-home me-1"></i>Strona główna
+                    </a>
+                </li>
+                <li class="breadcrumb-item active" aria-current="page">
+                    <i class="fas fa-newspaper me-1"></i>Newsy Finansowe
+                </li>
+            </ol>
+        </nav>
+
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="h2 mb-1">
+                    <i class="fas fa-newspaper me-2 text-primary"></i>
+                    Newsy Finansowe
+                </h1>
+                <p class="text-muted mb-0">Artykuły z portali Bankier.pl, Money.pl</p>
+            </div>
+            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Powrót
+            </a>
+        </div>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'danger' else 'warning' if category == 'warning' else 'success' }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Statistics Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card stats-card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-newspaper fa-2x text-primary mb-2"></i>
+                        <h5 class="card-title mb-1">{{ stats.total }}</h5>
+                        <p class="card-text text-muted">Łącznie artykułów</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stats-card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-clock fa-2x text-success mb-2"></i>
+                        <h5 class="card-title mb-1">{{ stats.today_count }}</h5>
+                        <p class="card-text text-muted">Dzisiaj</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stats-card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-globe fa-2x text-info mb-2"></i>
+                        <h5 class="card-title mb-1">{{ stats.by_source|length }}</h5>
+                        <p class="card-text text-muted">Źródła</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stats-card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-calendar fa-2x text-warning mb-2"></i>
+                        <h5 class="card-title mb-1">
+                            {% if stats.newest_date %}
+                                {{ stats.newest_date.strftime('%d.%m') }}
+                            {% else %}
+                                Brak
+                            {% endif %}
+                        </h5>
+                        <p class="card-text text-muted">Najnowszy</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters and Scraping Controls -->
+        <div class="filter-section">
+            <div class="row">
+                <div class="col-lg-8">
+                    <h5 class="mb-3"><i class="fas fa-filter me-2"></i>Filtry</h5>
+                    <form method="GET" class="row g-3">
+                        <div class="col-md-3">
+                            <label for="source" class="form-label">Źródło:</label>
+                            <select class="form-select" id="source" name="source">
+                                <option value="">Wszystkie źródła</option>
+                                {% for source in sources %}
+                                    <option value="{{ source }}" {{ 'selected' if source == current_source else '' }}>
+                                        {{ source }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="ticker" class="form-label">Spółka:</label>
+                            <select class="form-select" id="ticker" name="ticker">
+                                <option value="">Wszystkie spółki</option>
+                                {% for ticker in active_tickers %}
+                                    <option value="{{ ticker }}" {{ 'selected' if ticker == current_ticker else '' }}>
+                                        {{ ticker }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="days" class="form-label">Okres (dni):</label>
+                            <select class="form-select" id="days" name="days">
+                                <option value="3" {{ 'selected' if current_days == 3 else '' }}>3 dni</option>
+                                <option value="7" {{ 'selected' if current_days == 7 else '' }}>7 dni</option>
+                                <option value="14" {{ 'selected' if current_days == 14 else '' }}>14 dni</option>
+                                <option value="30" {{ 'selected' if current_days == 30 else '' }}>30 dni</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-search me-1"></i>Filtruj
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                <div class="col-lg-4">
+                    <h5 class="mb-3"><i class="fas fa-download me-2"></i>Pobieranie</h5>
+                    <form method="POST" action="{{ url_for('scrapers.scrape_news') }}" class="row g-3">
+                        <div class="col-8">
+                            <label for="days_back" class="form-label">Pobierz z ostatnich dni:</label>
+                            <select class="form-select" id="days_back" name="days_back">
+                                <option value="1">1 dzień</option>
+                                <option value="3" selected>3 dni</option>
+                                <option value="7">7 dni</option>
+                            </select>
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="submit" class="btn btn-success w-100">
+                                <i class="fas fa-sync me-1"></i>Pobierz
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics by Source -->
+        {% if stats.by_source %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-chart-pie me-2"></i>Statystyki według źródeł
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            {% for source, count in stats.by_source.items() %}
+                            <div class="col-md-4 mb-2">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="source-badge source-{{ source.lower().replace('.pl', '') }}">
+                                        {{ source }}
+                                    </span>
+                                    <strong>{{ count }} artykułów</strong>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- News List -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-list me-2"></i>
+                            Artykuły 
+                            {% if current_source %}
+                                - {{ current_source }}
+                            {% endif %}
+                            {% if current_ticker %}
+                                - {{ current_ticker }}
+                            {% endif %}
+                            ({{ news|length }})
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        {% if news %}
+                            {% for article in news %}
+                            <div class="card news-item source-{{ article.source_css if article.source_css else article.source.lower().replace('.pl', '') }}">
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-9">
+                                            <h6 class="card-title mb-2">
+                                                <a href="{{ article.url }}" target="_blank" class="text-decoration-none text-dark">
+                                                    {{ article.title }}
+                                                    <i class="fas fa-external-link-alt fa-sm ms-1 text-muted"></i>
+                                                </a>
+                                            </h6>
+                                            
+                                            {% if article.content_preview %}
+                                            <p class="content-preview mb-2">
+                                                {{ article.content_preview[:200] }}...
+                                            </p>
+                                            {% endif %}
+                                            
+                                            <div class="d-flex align-items-center">
+                                                <span class="source-badge source-{{ article.source_css if article.source_css else article.source.lower().replace('.pl', '') }} me-2">
+                                                    {{ article.source }}
+                                                </span>
+                                                
+                                                {% if article.tickers %}
+                                                    {% for ticker in article.tickers %}
+                                                        <span class="ticker-badge">{{ ticker }}</span>
+                                                    {% endfor %}
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3 text-end">
+                                            <div class="publication-date mb-2">
+                                                <i class="fas fa-clock me-1"></i>
+                                                {{ article.publication_date.strftime('%d.%m.%Y %H:%M') }}
+                                            </div>
+                                            
+                                            {% if article.html_path %}
+                                            <div>
+                                                <span class="badge bg-success">
+                                                    <i class="fas fa-file-code me-1"></i>Zapisano lokalnie
+                                                </span>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center py-5">
+                                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                                <h5 class="text-muted">Brak artykułów do wyświetlenia</h5>
+                                <p class="text-muted">Spróbuj zmienić filtry lub uruchom scrapowanie.</p>
+                                <a href="{{ url_for('scrapers.show_news') }}" class="btn btn-primary">
+                                    <i class="fas fa-refresh me-1"></i>Odśwież
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

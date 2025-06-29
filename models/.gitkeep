@@ -1,0 +1,4 @@
+# Usuń pliki .gitkeep jeśli foldery nie są puste
+data/
+logs/
+storage/

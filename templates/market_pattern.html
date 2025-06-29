@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Market Pattern ML - GPW Investor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .feature-card {
+            transition: transform 0.2s;
+            cursor: pointer;
+        }
+        .feature-card:hover {
+            transform: translateY(-2px);
+        }
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .status-dot.success { background-color: #28a745; }
+        .status-dot.warning { background-color: #ffc107; }
+        .status-dot.danger { background-color: #dc3545; }
+        .prediction-card {
+            border-left: 5px solid #007bff;
+        }
+        .prediction-card.buy {
+            border-left-color: #28a745;
+            background-color: #f8fff9;
+        }
+        .prediction-card.wait {
+            border-left-color: #ffc107;
+            background-color: #fffdf8;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/"><i class="fas fa-chart-line me-2"></i>GPW Investor</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/ml">ML Classic</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/market-pattern">Market Pattern ML</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/import">Import Danych</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <h1><i class="fas fa-brain me-2 text-primary"></i>Market Pattern ML</h1>
+                        <p class="text-muted mb-0">Wykrywanie wzorców rynkowych - panika, wyprzedaż, odbicia</p>
+                    </div>
+                    <div class="text-end">
+                        <button class="btn btn-outline-secondary" onclick="checkStatus()">
+                            <i class="fas fa-sync-alt me-2"></i>Odśwież Status
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Model -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Status Modelu</h5>
+                    </div>
+                    <div class="card-body" id="status-content">
+                        <div class="d-flex justify-content-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Sprawdzanie statusu...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card feature-card h-100" onclick="showTrainModal()">
+                    <div class="card-body text-center">
+                        <i class="fas fa-dumbbell fa-3x text-primary mb-3"></i>
+                        <h5>Trenuj Model</h5>
+                        <p class="text-muted">Wytrenuj model na danych 5-minutowych z ostatnich 500 dni</p>
+                        <button class="btn btn-primary btn-sm">Rozpocznij Trening</button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card feature-card h-100" onclick="runPrediction()">
+                    <div class="card-body text-center">
+                        <i class="fas fa-crystal-ball fa-3x text-success mb-3"></i>
+                        <h5>Predykcja Rynku</h5>
+                        <p class="text-muted">Sprawdź czy obecnie są warunki do wejścia na rynek</p>
+                        <button class="btn btn-success btn-sm">Analizuj Rynek</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card" id="results-panel" style="display: none;">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Wyniki</h5>
+                    </div>
+                    <div class="card-body" id="results-content">
+                        <!-- Results will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Training Modal -->
+    <div class="modal fade" id="trainModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-dumbbell me-2"></i>Trening Market Pattern ML</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="trainForm">
+                        <div class="mb-3">
+                            <label class="form-label">Wybierz spółki do analizy:</label>
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <div class="d-flex gap-2 flex-wrap">
+                                        <button type="button" class="btn btn-sm btn-outline-success" onclick="selectAllTickers()">
+                                            <i class="fas fa-check-double me-1"></i>Zaznacz wszystkie
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-warning" onclick="selectRecommendedTickers()">
+                                            <i class="fas fa-star me-1"></i>Zalecane
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="deselectAllTickers()">
+                                            <i class="fas fa-times me-1"></i>Odznacz wszystkie
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="tickers-container" style="max-height: 300px; overflow-y: auto;">
+                                <div class="text-center">
+                                    <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                        <span class="visually-hidden">Ładowanie tickerów...</span>
+                                    </div>
+                                    <p class="small text-muted mt-2">Pobieranie listy spółek z bazy danych...</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="daysBack" class="form-label">Liczba dni wstecz:</label>
+                            <select class="form-select" id="daysBack">
+                                <option value="100">100 dni (szybki test)</option>
+                                <option value="200">200 dni</option>
+                                <option value="500" selected>500 dni (zalecane)</option>
+                                <option value="1000">1000 dni (pełna analiza)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Model analizuje:</strong> Wszystkie wybrane spółki razem, wykrywa wzorce paniki/wyprzedaży/odbicia na poziomie całego rynku.
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+                    <button type="button" class="btn btn-primary" onclick="startTraining()">
+                        <i class="fas fa-play me-2"></i>Rozpocznij Trening
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Load status on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            checkStatus();
+        });
+
+        function checkStatus() {
+            const statusContent = document.getElementById('status-content');
+            statusContent.innerHTML = `
+                <div class="d-flex justify-content-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Sprawdzanie statusu...</span>
+                    </div>
+                </div>
+            `;
+
+            fetch('/api/ml/market-pattern/status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const isTrainedClass = data.is_trained ? 'success' : 'danger';
+                        const isTrainedText = data.is_trained ? 'Wytrenowany' : 'Nie wytrenowany';
+                        
+                        statusContent.innerHTML = `
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <h6>Status Modelu:</h6>
+                                    <p><span class="status-dot ${isTrainedClass}"></span>${isTrainedText}</p>
+                                    
+                                    <h6>Szczegóły:</h6>
+                                    <ul class="list-unstyled">
+                                        <li><i class="fas fa-cogs me-2"></i>Cechy: ${data.feature_count}</li>
+                                        <li><i class="fas fa-brain me-2"></i>Model: ${data.model_available ? 'Dostępny' : 'Niedostępny'}</li>
+                                        <li><i class="fas fa-balance-scale me-2"></i>Scaler: ${data.scaler_available ? 'Dostępny' : 'Niedostępny'}</li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-4">
+                                    <h6>Przykładowe cechy:</h6>
+                                    <div class="small">
+                                        ${data.features.map(f => `<span class="badge bg-secondary me-1 mb-1">${f}</span>`).join('')}
+                                        ${data.feature_count > 10 ? '<span class="badge bg-light text-dark">...</span>' : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        statusContent.innerHTML = `
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Błąd sprawdzania statusu: ${data.error}
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking status:', error);
+                    statusContent.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Błąd połączenia z API
+                        </div>
+                    `;
+                });
+        }
+
+        function showTrainModal() {
+            const modal = new bootstrap.Modal(document.getElementById('trainModal'));
+            modal.show();
+            loadAvailableTickers();
+        }
+
+        let availableTickers = [];
+
+        function loadAvailableTickers() {
+            const container = document.getElementById('tickers-container');
+            
+            fetch('/api/ml/market-pattern/tickers')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        availableTickers = data.tickers;
+                        renderTickersList(data.tickers);
+                    } else {
+                        container.innerHTML = `
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Błąd ładowania tickerów: ${data.error}
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading tickers:', error);
+                    container.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Błąd połączenia z API
+                        </div>
+                    `;
+                });
+        }
+
+        function renderTickersList(tickers) {
+            const container = document.getElementById('tickers-container');
+            
+            if (tickers.length === 0) {
+                container.innerHTML = `
+                    <div class="alert alert-warning">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Brak dostępnych tickerów z danymi
+                    </div>
+                `;
+                return;
+            }
+
+            // Split tickers into chunks for columns
+            const chunksCount = Math.ceil(tickers.length / 3);
+            const chunks = [];
+            for (let i = 0; i < 3; i++) {
+                chunks.push(tickers.slice(i * chunksCount, (i + 1) * chunksCount));
+            }
+
+            container.innerHTML = `
+                <div class="row">
+                    ${chunks.map((chunk, index) => `
+                        <div class="col-md-4">
+                            ${chunk.map(ticker => `
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" 
+                                           value="${ticker.ticker}" 
+                                           id="ticker_${ticker.ticker}"
+                                           ${ticker.recommended ? 'checked' : ''}>
+                                    <label class="form-check-label d-flex justify-content-between align-items-center" 
+                                           for="ticker_${ticker.ticker}">
+                                        <span>
+                                            ${ticker.ticker}
+                                            ${ticker.recommended ? '<i class="fas fa-star text-warning ms-1" title="Zalecane"></i>' : ''}
+                                            ${ticker.has_recent_data ? '<i class="fas fa-clock text-success ms-1" title="Najnowsze dane"></i>' : ''}
+                                        </span>
+                                        <small class="text-muted">${ticker.record_count.toLocaleString()}</small>
+                                    </label>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="mt-3">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Wyświetlono ${tickers.length} spółek z danymi. 
+                        <i class="fas fa-star text-warning"></i> Zalecane (>1000 rekordów), 
+                        <i class="fas fa-clock text-success"></i> Najnowsze dane (ostatnie 30 dni)
+                    </small>
+                </div>
+            `;
+        }
+
+        function selectAllTickers() {
+            document.querySelectorAll('#tickers-container input[type="checkbox"]').forEach(cb => {
+                cb.checked = true;
+            });
+        }
+
+        function selectRecommendedTickers() {
+            document.querySelectorAll('#tickers-container input[type="checkbox"]').forEach(cb => {
+                const ticker = availableTickers.find(t => t.ticker === cb.value);
+                cb.checked = ticker && ticker.recommended;
+            });
+        }
+
+        function deselectAllTickers() {
+            document.querySelectorAll('#tickers-container input[type="checkbox"]').forEach(cb => {
+                cb.checked = false;
+            });
+        }
+
+        function startTraining() {
+            const selectedTickers = Array.from(document.querySelectorAll('input[type="checkbox"]:checked'))
+                .map(cb => cb.value);
+            const daysBack = parseInt(document.getElementById('daysBack').value);
+
+            if (selectedTickers.length === 0) {
+                alert('Wybierz co najmniej jedną spółkę');
+                return;
+            }
+
+            // Close modal
+            bootstrap.Modal.getInstance(document.getElementById('trainModal')).hide();
+
+            // Show results panel with loading
+            const resultsPanel = document.getElementById('results-panel');
+            const resultsContent = document.getElementById('results-content');
+            
+            resultsPanel.style.display = 'block';
+            resultsContent.innerHTML = `
+                <div class="text-center">
+                    <div class="spinner-border text-primary mb-3" role="status"></div>
+                    <h5>Trenowanie modelu...</h5>
+                    <p class="text-muted">Analizowanie ${selectedTickers.length} spółek z ${daysBack} dni. To może potrwać kilka minut.</p>
+                </div>
+            `;
+
+            // Start training
+            fetch('/api/ml/market-pattern/train', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    tickers: selectedTickers,
+                    days_back: daysBack
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    resultsContent.innerHTML = `
+                        <div class="alert alert-success">
+                            <h5><i class="fas fa-check-circle me-2"></i>Model wytrenowany pomyślnie!</h5>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Statystyki treningu:</h6>
+                                <ul class="list-unstyled">
+                                    <li><i class="fas fa-target me-2"></i>Dokładność: <strong>${(data.accuracy * 100).toFixed(1)}%</strong></li>
+                                    <li><i class="fas fa-database me-2"></i>Próbki: <strong>${data.samples.toLocaleString()}</strong></li>
+                                    <li><i class="fas fa-cogs me-2"></i>Cechy: <strong>${data.features}</strong></li>
+                                    <li><i class="fas fa-chart-line me-2"></i>Pozytywne sygnały: <strong>${(data.positive_ratio * 100).toFixed(1)}%</strong></li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Najważniejsze cechy:</h6>
+                                <div class="small">
+                                    ${data.top_features.map(f => 
+                                        `<div class="d-flex justify-content-between mb-1">
+                                            <span>${f.feature}</span>
+                                            <span class="badge bg-primary">${(f.importance * 100).toFixed(1)}%</span>
+                                        </div>`
+                                    ).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Refresh status
+                    checkStatus();
+                } else {
+                    resultsContent.innerHTML = `
+                        <div class="alert alert-danger">
+                            <h5><i class="fas fa-exclamation-triangle me-2"></i>Błąd trenowania</h5>
+                            <p>${data.error}</p>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Training error:', error);
+                resultsContent.innerHTML = `
+                    <div class="alert alert-danger">
+                        <h5><i class="fas fa-exclamation-triangle me-2"></i>Błąd połączenia</h5>
+                        <p>Nie udało się połączyć z API</p>
+                    </div>
+                `;
+            });
+        }
+
+        async function getPredictionTickers() {
+            // If we have available tickers loaded, use recommended ones
+            if (availableTickers.length > 0) {
+                const recommended = availableTickers
+                    .filter(t => t.recommended)
+                    .map(t => t.ticker);
+                
+                if (recommended.length >= 3) {
+                    return recommended.slice(0, 10); // Max 10 tickers for performance
+                }
+            }
+
+            // Otherwise fetch fresh data
+            try {
+                const response = await fetch('/api/ml/market-pattern/tickers');
+                const data = await response.json();
+                
+                if (data.success) {
+                    availableTickers = data.tickers;
+                    const recommended = data.tickers
+                        .filter(t => t.recommended)
+                        .map(t => t.ticker);
+                    
+                    return recommended.length >= 3 ? recommended.slice(0, 10) : 
+                           data.tickers.slice(0, 8).map(t => t.ticker); // Fallback to top 8
+                }
+            } catch (error) {
+                console.error('Error fetching tickers for prediction:', error);
+            }
+
+            // Ultimate fallback to most common tickers
+            return ['CDR', 'PKN', 'PKO', 'CCC', 'PZU'];
+        }
+
+        function runPrediction() {
+            const resultsPanel = document.getElementById('results-panel');
+            const resultsContent = document.getElementById('results-content');
+            
+            resultsPanel.style.display = 'block';
+            resultsContent.innerHTML = `
+                <div class="text-center">
+                    <div class="spinner-border text-primary mb-3" role="status"></div>
+                    <h5>Analizowanie rynku...</h5>
+                    <p class="text-muted">Sprawdzanie wzorców rynkowych...</p>
+                </div>
+            `;
+
+            // Get recommended tickers for prediction
+            getPredictionTickers().then(tickers => {
+                fetch('/api/ml/market-pattern/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        tickers: tickers
+                    })
+                })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const recommendation = data.recommendation;
+                    const cardClass = recommendation === 'BUY' ? 'buy' : 'wait';
+                    const iconClass = recommendation === 'BUY' ? 'fa-arrow-up text-success' : 'fa-clock text-warning';
+                    
+                    resultsContent.innerHTML = `
+                        <div class="card prediction-card ${cardClass} mb-4">
+                            <div class="card-body">
+                                <div class="row align-items-center">
+                                    <div class="col-md-8">
+                                        <h4><i class="fas ${iconClass} me-2"></i>Rekomendacja: ${recommendation}</h4>
+                                        <p class="mb-0">Prawdopodobieństwo odbicia: <strong>${(data.probability_buy * 100).toFixed(1)}%</strong></p>
+                                        <small class="text-muted">Ostatnia aktualizacja: ${new Date(data.timestamp).toLocaleString('pl-PL')}</small>
+                                    </div>
+                                    <div class="col-md-4 text-end">
+                                        <div class="h2 mb-0 ${recommendation === 'BUY' ? 'text-success' : 'text-warning'}">
+                                            ${(data.probability_buy * 100).toFixed(0)}%
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-12">
+                                <h6>Status rynku:</h6>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <ul class="list-unstyled">
+                                            <li><i class="fas fa-chart-line me-2"></i>Średnia cena: <strong>${data.market_status.avg_price.toFixed(2)}</strong></li>
+                                            <li><i class="fas fa-percentage me-2"></i>Zmiana 1h: <strong>${(data.market_status.price_change_1h * 100).toFixed(2)}%</strong></li>
+                                            <li><i class="fas fa-arrow-down me-2"></i>Spadek spółek (1h): <strong>${(data.market_status.stocks_falling_pct_1h * 100).toFixed(1)}%</strong></li>
+                                        </ul>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <ul class="list-unstyled">
+                                            <li><i class="fas fa-signal me-2"></i>RSI rynku: <strong>${data.market_status.market_rsi.toFixed(1)}</strong></li>
+                                            <li><i class="fas fa-exclamation-triangle me-2"></i>Wyprzedaż: <strong>${data.market_status.oversold_simple ? 'TAK' : 'NIE'}</strong></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    resultsContent.innerHTML = `
+                        <div class="alert alert-danger">
+                            <h5><i class="fas fa-exclamation-triangle me-2"></i>Błąd predykcji</h5>
+                            <p>${data.error}</p>
+                        </div>
+                    `;
+                }
+                })
+                .catch(error => {
+                    console.error('Prediction error:', error);
+                    resultsContent.innerHTML = `
+                        <div class="alert alert-danger">
+                            <h5><i class="fas fa-exclamation-triangle me-2"></i>Błąd połączenia</h5>
+                            <p>Nie udało się połączyć z API</p>
+                        </div>
+                    `;
+                });
+            }).catch(error => {
+                console.error('Error getting prediction tickers:', error);
+                resultsContent.innerHTML = `
+                    <div class="alert alert-danger">
+                        <h5><i class="fas fa-exclamation-triangle me-2"></i>Błąd</h5>
+                        <p>Nie udało się pobrać listy tickerów do predykcji</p>
+                    </div>
+                `;
+            });
+        }
+    </script>
+</body>
+</html>

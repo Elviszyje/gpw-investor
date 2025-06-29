@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPW Investor - Dane Intraday</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .table th {
+            border-top: none;
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+        .price-cell {
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        .volume-cell {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+        .datetime-cell {
+            font-size: 0.9rem;
+        }
+        .data-row:hover {
+            background-color: #f8f9fa;
+        }
+        .recent-badge {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+        .stats-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border: none;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container mt-4">
+        <!-- Nagłówek -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h1 class="text-center mb-3">
+                    <i class="fas fa-clock text-primary"></i>
+                    Dane Intraday GPW
+                </h1>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb justify-content-center">
+                        <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Strona główna</a></li>
+                        <li class="breadcrumb-item active">Dane intraday</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Formularz wyboru spółki -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-search"></i>
+                    Wybór spółki
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post" class="row g-3">
+                    <div class="col-md-8">
+                        <label for="ticker" class="form-label">Wybierz spółkę:</label>
+                        <select name="ticker" id="ticker" class="form-select" required>
+                            <option value="">-- Wybierz spółkę --</option>
+                            {% for c in companies %}
+                                <option value="{{ c.ticker }}" {% if selected==c.ticker %}selected{% endif %}>
+                                    {{ c.ticker }} - {{ c.name or c.ticker }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-chart-line me-2"></i>Pokaż dane
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Statystyki -->
+        {% if data %}
+            {% set latest_price = data[0].price if data else 0 %}
+            {% set oldest_price = data[-1].price if data|length > 1 else latest_price %}
+            {% set price_change = latest_price - oldest_price %}
+            {% set price_change_pct = (price_change / oldest_price * 100) if oldest_price > 0 else 0 %}
+            {% set total_volume = data|sum(attribute='volume') %}
+
+            <div class="row mb-4">
+                <div class="col-md-3 mb-3">
+                    <div class="card stats-card text-center">
+                        <div class="card-body">
+                            <i class="fas fa-chart-line text-primary" style="font-size: 2rem;"></i>
+                            <h6 class="card-title mt-2">Ostatnia Cena</h6>
+                            <h4 class="text-primary price-cell">{{ "%.2f"|format(latest_price) }} PLN</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card stats-card text-center">
+                        <div class="card-body">
+                            <i class="fas fa-{% if price_change >= 0 %}arrow-up text-success{% else %}arrow-down text-danger{% endif %}" style="font-size: 2rem;"></i>
+                            <h6 class="card-title mt-2">Zmiana</h6>
+                            <h4 class="{% if price_change >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                {{ "%.2f"|format(price_change) }} PLN<br>
+                                <small>({{ "%.2f"|format(price_change_pct) }}%)</small>
+                            </h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card stats-card text-center">
+                        <div class="card-body">
+                            <i class="fas fa-chart-bar text-warning" style="font-size: 2rem;"></i>
+                            <h6 class="card-title mt-2">Całkowity Wolumen</h6>
+                            <h4 class="text-warning">{{ "{:,}".format(total_volume).replace(',', ' ') }}</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card stats-card text-center">
+                        <div class="card-body">
+                            <i class="fas fa-database text-info" style="font-size: 2rem;"></i>
+                            <h6 class="card-title mt-2">Liczba Rekordów</h6>
+                            <h4 class="text-info">{{ data|length }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- Wyniki -->
+        {% if data %}
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-table"></i>
+                        Dane intraday dla {{ selected }}
+                        <span class="badge bg-light text-dark ms-2">{{ data|length }} rekordów</span>
+                        {% if data %}
+                            <span class="badge bg-warning recent-badge ms-1">
+                                <i class="fas fa-clock"></i> Live
+                            </span>
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th><i class="fas fa-clock me-1"></i>Data i czas</th>
+                                    <th><i class="fas fa-money-bill me-1"></i>Cena (PLN)</th>
+                                    <th><i class="fas fa-chart-bar me-1"></i>Wolumen</th>
+                                    <th><i class="fas fa-percentage me-1"></i>Zmiana</th>
+                                    <th><i class="fas fa-info-circle me-1"></i>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in data %}
+                                    {% set prev_price = data[loop.index0 + 1].price if not loop.last else row.price %}
+                                    {% set change = row.price - prev_price %}
+                                    {% set change_pct = (change / prev_price * 100) if prev_price > 0 else 0 %}
+                                    {% set is_recent = loop.first %}
+                                <tr class="data-row {% if is_recent %}table-warning{% endif %}">
+                                    <td class="datetime-cell">
+                                        {% if is_recent %}
+                                            <span class="badge bg-success me-1">NEW</span>
+                                        {% endif %}
+                                        <span class="fw-bold">
+                                            {{ row.datetime.strftime('%Y-%m-%d %H:%M:%S') if row.datetime.strftime else row.datetime }}
+                                        </span>
+                                    </td>
+                                    <td class="price-cell">
+                                        {{ "%.2f"|format(row.price) if row.price else '-' }}
+                                    </td>
+                                    <td class="volume-cell">
+                                        {{ "{:,}".format(row.volume).replace(',', ' ') if row.volume else '-' }}
+                                    </td>
+                                    <td>
+                                        {% if not loop.last %}
+                                            {% if change > 0 %}
+                                                <span class="text-success">
+                                                    <i class="fas fa-arrow-up"></i> +{{ "%.2f"|format(change) }}
+                                                    <small>(+{{ "%.2f"|format(change_pct) }}%)</small>
+                                                </span>
+                                            {% elif change < 0 %}
+                                                <span class="text-danger">
+                                                    <i class="fas fa-arrow-down"></i> {{ "%.2f"|format(change) }}
+                                                    <small>({{ "%.2f"|format(change_pct) }}%)</small>
+                                                </span>
+                                            {% else %}
+                                                <span class="text-muted">
+                                                    <i class="fas fa-equals"></i> Bez zmiany
+                                                </span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if is_recent %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-circle" style="animation: pulse 1s infinite;"></i> Najnowszy
+                                            </span>
+                                        {% elif loop.index0 < 5 %}
+                                            <span class="badge bg-primary">Ostatnie</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Historyczny</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    {% if data|length > 20 %}
+                        <div class="text-center mt-3">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle"></i>
+                                Wyświetlono {{ data|length }} najnowszych rekordów intraday
+                            </small>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        {% elif selected %}
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Brak danych intraday</strong> dla spółki <strong>{{ selected }}</strong>.
+                <br>
+                <small>
+                    Spróbuj uruchomić scraper używając 
+                    <a href="{{ url_for('scrapers.selenium_scraper') }}" class="alert-link">Selenium Scraper</a>
+                    lub pobierz dane używając 
+                    <a href="{{ url_for('data_ops.run_intraday') }}" class="alert-link">funkcji intraday</a>.
+                </small>
+            </div>
+        {% endif %}
+
+        <!-- Przyciski akcji -->
+        <div class="row mt-4">
+            <div class="col-12 text-center">
+                <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Powrót do strony głównej
+                </a>
+                {% if selected %}
+                    <a href="{{ url_for('scrapers.selenium_scraper') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-robot"></i> Uruchom scraper
+                    </a>
+                    <button onclick="window.location.reload()" class="btn btn-outline-success">
+                        <i class="fas fa-sync-alt"></i> Odśwież dane
+                    </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Automatyczne submit po wyborze spółki
+        document.getElementById('ticker').addEventListener('change', function() {
+            if (this.value) {
+                this.form.submit();
+            }
+        });
+
+        // Auto-refresh co 30 sekund jeśli są dane
+        {% if selected and data %}
+        setInterval(function() {
+            window.location.reload();
+        }, 30000);
+        {% endif %}
+    </script>
+</body>
+</html>

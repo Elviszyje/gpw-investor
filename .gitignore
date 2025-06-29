@@ -1,0 +1,192 @@
+# Ignoruj pliki systemowe
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Ignoruj pliki IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Ignoruj pliki środowiska Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Ignoruj środowisko wirtualne
+virt/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Ignoruj pliki konfiguracyjne środowiska (WAŻNE!)
+.env
+.env.*
+!.env.example
+
+# Ignoruj logi i pliki tymczasowe
+logs/
+*.log
+*.log.*
+temp/
+tmp/
+
+# Ignoruj dane aplikacji i cache
+data/
+storage/
+__pycache__/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Ignoruj modele ML (duże pliki)
+models/*.pkl
+models/*.joblib
+models/*.h5
+models/*.pb
+!models/.gitkeep
+
+# Ignoruj archiwum transferu
+*.tar.gz
+*.zip
+backup*.sql
+
+# Ignoruj pliki Docker (opcjonalne - zostaw je)
+# docker-compose.override.yml
+
+# Ignoruj dane PostgreSQL z wolumenów
+postgres_data/
+redis_data/
+
+# Ignoruj pliki systemowe macOS
+.AppleDouble
+.LSOverride
+Icon
+
+# Ignoruj pliki Windows
+ehthumbs.db
+Desktop.ini
+
+# Ignoruj pliki Linux
+*~
+
+# Ignoruj certyfikaty i klucze
+*.pem
+*.key
+*.crt
+*.p12
+
+# Ignoruj backup'y bazy danych
+*.sql
+*.dump
+
+# Ignoruj pliki konfiguracyjne IDE
+.vscode/settings.json
+.vscode/launch.json
+
+# Ignoruj pliki developerskie i dokumenty robocze
+*_backup.py
+*_backup.db
+*_original*.py
+*_sqlite_backup.py
+*_postgresql.py
+analyze_*.py
+test_*.py
+test_*.txt
+test_*.db
+demo_*.py
+migrate_*.py
+create_test_data.py
+cleanup_*.py
+manage_database*.py
+stress_test.py
+quick_*.py
+final_summary.py
+performance_*.py
+price_alerts.py
+telegram_notifications.py
+ticker_manager*.py
+system_health_check.py
+import_job_manager.py
+enhanced_ticker_registration.py
+data_gap_filler.py
+import_historical_data*.py
+
+# Ignoruj dokumenty robocze
+*_SUMMARY.md
+*_REPORT.md
+*_COMPLETED.md
+*_STATUS.md
+FINAL_*.md
+INSTRUKCJA_*.md
+NAPRAWA_*.md
+PANEL_*.md
+PARAMETRY_*.md
+POWIADOMIENIA_*.md
+PRODUCTION_*.md
+README_*.md
+RECOMMENDATION_*.md
+REFACTORING_*.md
+SYSTEMY_*.md
+SYSTEM_*.md
+MODERNIZATION_*.md
+INTEGRATION_*.md
+ML_INTEGRATION_*.md
+PERFORMANCE_*.md
+
+# Ignoruj foldery deweloperskie
+migrations/
+scripts/
+config/
+test_data/
+memory-bank/
+
+# Ignoruj bazy danych deweloperskie
+*.db
+recommendations.db
+gpw_data.db
+
+# Ignoruj pliki konfiguracyjne developerskie
+*_config.json
+rules_config*.json
+scanner_configs.json
+tickers_config.json
+
+# Ignoruj pliki testowe
+webtest_*.txt
+
+# Ignoruj pliki robocze i deweloperskie
+app_new.py
+postgresql_ticker_manager.py
+STATUS_SYSTEMU.md
+
+# Ignoruj data testowe
+historical_data/*.txt
+!historical_data/.gitkeep

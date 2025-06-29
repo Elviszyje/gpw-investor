@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Konfiguracje Skanera - GPW Investor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .hero-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+        }
+        .config-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            border-left: 4px solid #007bff;
+        }
+        .config-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .config-card.conservative {
+            border-left-color: #28a745;
+        }
+        .config-card.balanced {
+            border-left-color: #007bff;
+        }
+        .config-card.aggressive {
+            border-left-color: #dc3545;
+        }
+        .config-card.custom {
+            border-left-color: #6f42c1;
+        }
+        .performance-indicator {
+            height: 8px;
+            border-radius: 4px;
+            background: #e9ecef;
+            overflow: hidden;
+        }
+        .performance-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        .test-result {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border-radius: 10px;
+            padding: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Hero Section -->
+    <div class="hero-section">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1 class="display-6 fw-bold">⚙️ Konfiguracje Skanera Intraday</h1>
+                    <p class="lead mb-0">Zarządzaj ustawieniami skanowania rynku GPW</p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <a href="{{ url_for('recommendations.intraday_scan') }}" class="btn btn-light btn-lg">
+                        <i class="fas fa-arrow-left"></i> Powrót do skanera
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="container">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+<div class="container">
+    <!-- Test Result -->
+    {% if test_result %}
+    <div class="test-result mb-4">
+        <h5><i class="fas fa-check-circle"></i> Wynik testu konfiguracji</h5>
+        <div class="row">
+            <div class="col-md-3">
+                <strong>Przeanalizowano:</strong><br>
+                {{ test_result.total_analyzed }} spółek
+            </div>
+            <div class="col-md-3">
+                <strong>Znalezione sygnały:</strong><br>
+                {{ test_result.filtered_results }} wyników
+            </div>
+            <div class="col-md-3">
+                <strong>Czas wykonania:</strong><br>
+                {{ test_result.execution_time }}s
+            </div>
+            <div class="col-md-3">
+                <strong>Wydajność:</strong><br>
+                {{ test_result.performance_score }} sygnałów/s
+            </div>
+        </div>
+        <div class="mt-2">
+            <small><strong>Testowane spółki:</strong> {{ test_result.tickers_tested|join(', ') }}</small>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Istniejące Konfiguracje -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>📋 Zapisane konfiguracje</h5>
+        </div>
+        <div class="card-body">
+            {% if configs %}
+                <div class="row">
+                    {% for key, config in configs.items() %}
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card config-card {{ key }} h-100">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h6 class="card-title mb-0">{{ config.name }}</h6>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item" href="#" onclick="loadConfig('{{ key }}')">
+                                                <i class="fas fa-edit"></i> Edytuj
+                                            </a></li>
+                                            <li><a class="dropdown-item" href="#" onclick="useConfig('{{ key }}')">
+                                                <i class="fas fa-play"></i> Użyj w skanerze
+                                            </a></li>
+                                            {% if key not in ['conservative', 'balanced'] %}
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><a class="dropdown-item text-danger" href="#" onclick="deleteConfig('{{ key }}', '{{ config.name }}')">
+                                                <i class="fas fa-trash"></i> Usuń
+                                            </a></li>
+                                            {% endif %}
+                                        </ul>
+                                    </div>
+                                </div>
+                                
+                                <div class="small mb-2">
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <strong>Wątki:</strong> {{ config.max_workers }}<br>
+                                            <strong>Spółki:</strong> {{ config.max_companies }}
+                                        </div>
+                                        <div class="col-6">
+                                            <strong>BUY:</strong> {{ config.min_buy_confidence }}%<br>
+                                            <strong>SELL:</strong> {{ config.min_sell_confidence }}%
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {% if config.description %}
+                                <p class="card-text small text-muted">{{ config.description }}</p>
+                                {% endif %}
+                                
+                                <!-- Performance indicator -->
+                                <div class="performance-indicator mb-2">
+                                    {% if config and config.max_workers and config.max_companies %}
+                                    {% set performance = (config.max_workers * config.max_companies / 500 * 100) | int %}
+                                    <div class="performance-fill bg-primary" style="width: {{ [performance, 100] | min }}%"></div>
+                                    <small class="text-muted">Oszacowana wydajność: {{ [performance, 100] | min }}%</small>
+                                    {% else %}
+                                    <div class="performance-fill bg-secondary" style="width: 50%"></div>
+                                    <small class="text-muted">Konfiguracja domyślna</small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> Brak zapisanych konfiguracji. Utwórz pierwszą konfigurację poniżej.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Formularz nowej/edytowanej konfiguracji -->
+    <div class="card">
+        <div class="card-header">
+            <h5 id="form-title">➕ Nowa konfiguracja</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                <input type="hidden" name="action" value="save">
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="config_name" class="form-label">Nazwa konfiguracji:</label>
+                        <input type="text" name="config_name" id="config_name" class="form-control" required 
+                               placeholder="np. Moja strategia">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="description" class="form-label">Opis (opcjonalnie):</label>
+                        <input type="text" name="description" id="description" class="form-control" 
+                               placeholder="Krótki opis strategii">
+                    </div>
+                </div>
+
+                <div class="row">
+                    <!-- Parametry wydajności -->
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header py-2">
+                                <h6 class="mb-0">🚀 Wydajność</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-6 mb-3">
+                                        <label for="max_workers" class="form-label">Liczba wątków:</label>
+                                        <select name="max_workers" id="max_workers" class="form-control">
+                                            <option value="1">1 (bardzo wolne)</option>
+                                            <option value="2">2 (wolne)</option>
+                                            <option value="3">3 (średnie)</option>
+                                            <option value="5" selected>5 (szybkie)</option>
+                                            <option value="8">8 (bardzo szybkie)</option>
+                                            <option value="10">10 (maksymalne)</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-6 mb-3">
+                                        <label for="max_companies" class="form-label">Maks. spółek:</label>
+                                        <select name="max_companies" id="max_companies" class="form-control">
+                                            <option value="10">10</option>
+                                            <option value="20">20</option>
+                                            <option value="30">30</option>
+                                            <option value="50" selected>50</option>
+                                            <option value="100">100</option>
+                                            <option value="200">200 (wszystkie)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filtry -->
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header py-2">
+                                <h6 class="mb-0">🎯 Filtry</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-6 mb-3">
+                                        <label for="min_buy_confidence" class="form-label">Min. pewność BUY (%):</label>
+                                        <input type="number" name="min_buy_confidence" id="min_buy_confidence" 
+                                               class="form-control" value="1.0" min="0" max="100" step="0.1">
+                                    </div>
+                                    <div class="col-6 mb-3">
+                                        <label for="min_sell_confidence" class="form-label">Min. pewność SELL (%):</label>
+                                        <input type="number" name="min_sell_confidence" id="min_sell_confidence" 
+                                               class="form-control" value="1.0" min="0" max="100" step="0.1">
+                                    </div>
+                                    <div class="col-6 mb-3">
+                                        <label for="filter_recommendation" class="form-label">Typ sygnału:</label>
+                                        <select name="filter_recommendation" id="filter_recommendation" class="form-control">
+                                            <option value="ALL" selected>Wszystkie</option>
+                                            <option value="BUY">Tylko BUY</option>
+                                            <option value="SELL">Tylko SELL</option>
+                                            <option value="WAIT">Tylko WAIT</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-6 mb-3">
+                                        <label for="sort_by" class="form-label">Sortowanie:</label>
+                                        <select name="sort_by" id="sort_by" class="form-control">
+                                            <option value="confidence" selected>Pewność</option>
+                                            <option value="price_change">Zmiana ceny</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Nowe parametry analizy technicznej -->
+                <div class="row mt-3">
+                    <!-- Parametry spadku ceny -->
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header py-2">
+                                <h6 class="mb-0">📉 Analiza spadków ceny</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" name="enable_price_drop_analysis" 
+                                           id="enable_price_drop_analysis" checked>
+                                    <label class="form-check-label" for="enable_price_drop_analysis">
+                                        <strong>Aktywuj analizę spadków ceny</strong>
+                                    </label>
+                                </div>
+                                <div class="row">
+                                    <div class="col-6 mb-3">
+                                        <label for="price_drop_threshold" class="form-label">Próg spadku (%):</label>
+                                        <input type="number" name="price_drop_threshold" id="price_drop_threshold" 
+                                               class="form-control" value="2.5" min="0.1" max="20" step="0.1">
+                                        <small class="text-muted">Minimalny spadek do wykrycia okazji</small>
+                                    </div>
+                                    <div class="col-6 mb-3">
+                                        <label for="price_drop_timeframe" class="form-label">Przedział czasu:</label>
+                                        <select name="price_drop_timeframe" id="price_drop_timeframe" class="form-control">
+                                            <option value="5">5 minut</option>
+                                            <option value="15">15 minut</option>
+                                            <option value="30" selected>30 minut</option>
+                                            <option value="60">1 godzina</option>
+                                            <option value="120">2 godziny</option>
+                                            <option value="240">4 godziny</option>
+                                        </select>
+                                        <small class="text-muted">W jakim czasie ma nastąpić spadek</small>
+                                    </div>
+                                    <div class="col-12 mb-3">
+                                        <label for="min_volume_multiplier" class="form-label">Min. wzrost wolumenu:</label>
+                                        <input type="number" name="min_volume_multiplier" id="min_volume_multiplier" 
+                                               class="form-control" value="1.8" min="1.0" max="5.0" step="0.1">
+                                        <small class="text-muted">Ile razy większy wolumen niż średnia</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Parametry wskaźników technicznych -->
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header py-2">
+                                <h6 class="mb-0">📊 Wskaźniki techniczne</h6>
+                            </div>
+                            <div class="card-body">
+                                <!-- RSI -->
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" name="enable_rsi" id="enable_rsi" checked>
+                                    <label class="form-check-label" for="enable_rsi">
+                                        <strong>RSI (Relative Strength Index)</strong>
+                                    </label>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-6">
+                                        <label for="rsi_oversold" class="form-label">Próg wyprzedania:</label>
+                                        <input type="number" name="rsi_oversold" id="rsi_oversold" 
+                                               class="form-control" value="35" min="10" max="50" step="1">
+                                    </div>
+                                    <div class="col-6">
+                                        <label for="rsi_overbought" class="form-label">Próg wykupienia:</label>
+                                        <input type="number" name="rsi_overbought" id="rsi_overbought" 
+                                               class="form-control" value="65" min="50" max="90" step="1">
+                                    </div>
+                                </div>
+
+                                <!-- Bollinger Bands -->
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" name="enable_bollinger" 
+                                           id="enable_bollinger" checked>
+                                    <label class="form-check-label" for="enable_bollinger">
+                                        <strong>Bollinger Bands</strong>
+                                    </label>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-12">
+                                        <label for="bollinger_periods" class="form-label">Okresy:</label>
+                                        <select name="bollinger_periods" id="bollinger_periods" class="form-control">
+                                            <option value="10">10</option>
+                                            <option value="20" selected>20</option>
+                                            <option value="30">30</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- MACD -->
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" name="enable_macd" id="enable_macd" checked>
+                                    <label class="form-check-label" for="enable_macd">
+                                        <strong>MACD</strong>
+                                    </label>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-4">
+                                        <label for="macd_fast" class="form-label">Szybka:</label>
+                                        <input type="number" name="macd_fast" id="macd_fast" 
+                                               class="form-control" value="5" min="3" max="20" step="1">
+                                    </div>
+                                    <div class="col-4">
+                                        <label for="macd_slow" class="form-label">Wolna:</label>
+                                        <input type="number" name="macd_slow" id="macd_slow" 
+                                               class="form-control" value="10" min="10" max="50" step="1">
+                                    </div>
+                                    <div class="col-4">
+                                        <label for="macd_signal" class="form-label">Sygnał:</label>
+                                        <input type="number" name="macd_signal" id="macd_signal" 
+                                               class="form-control" value="3" min="3" max="15" step="1">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Weryfikacja komunikatów rynkowych -->
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header py-2">
+                                <h6 class="mb-0">📰 Weryfikacja komunikatów rynkowych</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" name="enable_news_verification" 
+                                           id="enable_news_verification">
+                                    <label class="form-check-label" for="enable_news_verification">
+                                        <strong>Aktywuj weryfikację komunikatów</strong>
+                                    </label>
+                                    <small class="text-muted d-block">Sprawdza czy pojawiły się komunikaty rynkowe w określonym czasie</small>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-3 mb-3">
+                                        <label for="news_timeframe" class="form-label">Przedział czasowy:</label>
+                                        <select name="news_timeframe" id="news_timeframe" class="form-control">
+                                            <option value="1">1 godzina</option>
+                                            <option value="4">4 godziny</option>
+                                            <option value="12">12 godzin</option>
+                                            <option value="24" selected>24 godziny</option>
+                                            <option value="48">48 godzin</option>
+                                            <option value="72">72 godziny</option>
+                                        </select>
+                                        <small class="text-muted">W jakim czasie sprawdzać komunikaty</small>
+                                    </div>
+                                    
+                                    <div class="col-md-3 mb-3">
+                                        <label for="news_strategy" class="form-label">Strategia:</label>
+                                        <select name="news_strategy" id="news_strategy" class="form-control">
+                                            <option value="neutral" selected>Neutralna</option>
+                                            <option value="require_news">Wymagaj komunikatów</option>
+                                            <option value="avoid_news">Unikaj po komunikatach</option>
+                                        </select>
+                                        <small class="text-muted">Jak traktować komunikaty</small>
+                                    </div>
+                                    
+                                    <div class="col-md-3 mb-3">
+                                        <label for="sentiment_weight" class="form-label">Waga sentymentu:</label>
+                                        <input type="number" name="sentiment_weight" id="sentiment_weight" 
+                                               class="form-control" value="1.0" min="0.0" max="3.0" step="0.1">
+                                        <small class="text-muted">Jak mocno wpływa na pewność (0.0-3.0)</small>
+                                    </div>
+                                    
+                                    <div class="col-md-3 mb-3">
+                                        <label for="min_news_impact" class="form-label">Min. wpływ:</label>
+                                        <input type="number" name="min_news_impact" id="min_news_impact" 
+                                               class="form-control" value="0.1" min="0.0" max="1.0" step="0.05">
+                                        <small class="text-muted">Minimalny wpływ na rekomendację</small>
+                                    </div>
+                                </div>
+                                
+                                <div class="alert alert-info mb-0">
+                                    <small>
+                                        <i class="fas fa-info-circle"></i> 
+                                        <strong>Strategia neutralna:</strong> Uwzględnia sentyment komunikatów.<br>
+                                        <strong>Wymagaj komunikatów:</strong> Obniża pewność gdy brak komunikatów.<br>
+                                        <strong>Unikaj po komunikatach:</strong> Obniża pewność gdy są świeże komunikaty.
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Przyciski akcji -->
+                <div class="row mt-4">
+                    <div class="col-md-4">
+                        <button type="submit" class="btn btn-success w-100">
+                            <i class="fas fa-save"></i> Zapisz konfigurację
+                        </button>
+                    </div>
+                    <div class="col-md-4">
+                        <button type="submit" formaction="{{ url_for('import_config.intraday_config') }}" 
+                                onclick="document.querySelector('input[name=action]').value='test'"
+                                class="btn btn-info w-100">
+                            <i class="fas fa-play"></i> Przetestuj
+                        </button>
+                    </div>
+                    <div class="col-md-4">
+                        <button type="button" class="btn btn-outline-secondary w-100" onclick="resetForm()">
+                            <i class="fas fa-undo"></i> Resetuj
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Pomoc -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h6>💡 Wskazówki dotyczące konfiguracji</h6>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>🚀 Wydajność:</h6>
+                    <ul class="small">
+                        <li><strong>1-2 wątki:</strong> Dla słabszych systemów</li>
+                        <li><strong>5 wątków:</strong> Standardowe, zrównoważone</li>
+                        <li><strong>8+ wątków:</strong> Dla mocnych systemów</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h6>🎯 Filtry pewności:</h6>
+                    <ul class="small">
+                        <li><strong>0.0-1.0%:</strong> Wszystkie sygnały</li>
+                        <li><strong>1.5-2.5%:</strong> Średnio pewne</li>
+                        <li><strong>3.0%+:</strong> Bardzo pewne sygnały</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+function loadConfig(configKey) {
+    fetch(`/api/scanner_config`)
+        .then(response => response.json())
+        .then(configs => {
+            const config = configs[configKey];
+            if (config) {
+                // Podstawowe pola
+                document.getElementById('config_name').value = config.name;
+                document.getElementById('description').value = config.description || '';
+                document.getElementById('max_workers').value = config.max_workers;
+                document.getElementById('max_companies').value = config.max_companies;
+                document.getElementById('min_buy_confidence').value = config.min_buy_confidence;
+                document.getElementById('min_sell_confidence').value = config.min_sell_confidence;
+                document.getElementById('filter_recommendation').value = config.filter_recommendation;
+                document.getElementById('sort_by').value = config.sort_by || 'confidence';
+                
+                // Parametry analizy spadków ceny
+                if (config.price_drop_analysis) {
+                    document.getElementById('enable_price_drop_analysis').checked = config.price_drop_analysis.enabled;
+                    document.getElementById('price_drop_threshold').value = config.price_drop_analysis.threshold_percent;
+                    document.getElementById('price_drop_timeframe').value = config.price_drop_analysis.timeframe_minutes;
+                    document.getElementById('min_volume_multiplier').value = config.price_drop_analysis.min_volume_multiplier;
+                }
+                
+                // Parametry wskaźników technicznych
+                if (config.technical_indicators) {
+                    // RSI
+                    if (config.technical_indicators.rsi) {
+                        document.getElementById('enable_rsi').checked = config.technical_indicators.rsi.enabled;
+                        document.getElementById('rsi_oversold').value = config.technical_indicators.rsi.oversold_threshold;
+                        document.getElementById('rsi_overbought').value = config.technical_indicators.rsi.overbought_threshold;
+                    }
+                    
+                    // Bollinger Bands
+                    if (config.technical_indicators.bollinger_bands) {
+                        document.getElementById('enable_bollinger').checked = config.technical_indicators.bollinger_bands.enabled;
+                        document.getElementById('bollinger_periods').value = config.technical_indicators.bollinger_bands.periods;
+                    }
+                    
+                    // MACD
+                    if (config.technical_indicators.macd) {
+                        document.getElementById('enable_macd').checked = config.technical_indicators.macd.enabled;
+                        document.getElementById('macd_fast').value = config.technical_indicators.macd.fast_periods;
+                        document.getElementById('macd_slow').value = config.technical_indicators.macd.slow_periods;
+                        document.getElementById('macd_signal').value = config.technical_indicators.macd.signal_periods;
+                    }
+                }
+                
+                // Parametry weryfikacji komunikatów
+                if (config.news_verification) {
+                    document.getElementById('enable_news_verification').checked = config.news_verification.enabled;
+                    document.getElementById('news_timeframe').value = config.news_verification.timeframe_hours;
+                    document.getElementById('news_strategy').value = config.news_verification.strategy;
+                    document.getElementById('sentiment_weight').value = config.news_verification.sentiment_weight;
+                    document.getElementById('min_news_impact').value = config.news_verification.min_impact;
+                }
+                
+                document.getElementById('form-title').innerHTML = '✏️ Edytuj konfigurację: ' + config.name;
+                
+                // Scroll to form
+                document.querySelector('form').scrollIntoView({ behavior: 'smooth' });
+            }
+        })
+        .catch(error => {
+            console.error('Error loading config:', error);
+            alert('Błąd podczas ładowania konfiguracji');
+        });
+}
+
+function useConfig(configKey) {
+    // Przekieruj do skanera z parametrami konfiguracji
+    fetch(`/api/scanner_config`)
+        .then(response => response.json())
+        .then(configs => {
+            const config = configs[configKey];
+            if (config) {
+                const params = new URLSearchParams({
+                    scan_all: 'on',
+                    max_workers: config.max_workers,
+                    max_companies: config.max_companies,
+                    min_buy_confidence: config.min_buy_confidence,
+                    min_sell_confidence: config.min_sell_confidence,
+                    filter_recommendation: config.filter_recommendation,
+                    sort_by: config.sort_by || 'confidence'
+                });
+                
+                // Otwórz skaner w nowej karcie
+                window.open(`/intraday_scan?${params.toString()}`, '_blank');
+            }
+        });
+}
+
+function deleteConfig(configKey, configName) {
+    if (confirm(`Czy na pewno chcesz usunąć konfigurację "${configName}"?`)) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.innerHTML = `
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="config_key" value="${configKey}">
+        `;
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+function resetForm() {
+    document.querySelector('form').reset();
+    document.getElementById('form-title').innerHTML = '➕ Nowa konfiguracja';
+    
+    // Przywróć domyślne wartości checkboxów
+    document.getElementById('enable_price_drop_analysis').checked = true;
+    document.getElementById('enable_rsi').checked = true;
+    document.getElementById('enable_bollinger').checked = true;
+    document.getElementById('enable_macd').checked = true;
+}
+
+// Auto-update performance indicator
+document.addEventListener('DOMContentLoaded', function() {
+    const workersSelect = document.getElementById('max_workers');
+    const companiesSelect = document.getElementById('max_companies');
+    
+    function updatePerformancePreview() {
+        const workers = parseInt(workersSelect.value);
+        const companies = parseInt(companiesSelect.value);
+        const estimatedTime = Math.round(companies / (workers * 2));
+        
+        // Update any performance indicators if needed
+        console.log(`Estimated time: ${estimatedTime}s for ${companies} companies with ${workers} workers`);
+    }
+    
+    workersSelect.addEventListener('change', updatePerformancePreview);
+    companiesSelect.addEventListener('change', updatePerformancePreview);
+});
+</script>
+</body>
+</html>

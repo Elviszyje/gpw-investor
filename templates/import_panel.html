@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Import Danych Historycznych - GPW Investor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .status-card {
+            transition: all 0.3s ease;
+        }
+        .status-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .import-zone {
+            border: 2px dashed #dee2e6;
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .import-zone:hover {
+            border-color: #0d6efd;
+            background-color: #f8f9ff;
+        }
+        .import-zone.dragover {
+            border-color: #198754;
+            background-color: #d1eddb;
+        }
+        .file-info {
+            font-size: 0.9em;
+            color: #6c757d;
+        }
+        .progress-wrapper {
+            display: none;
+            margin-top: 20px;
+        }
+        .result-box {
+            display: none;
+            margin-top: 20px;
+        }
+        .spinner-border-sm {
+            width: 1rem;
+            height: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-chart-line me-2"></i>GPW Investor
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/"><i class="fas fa-home me-1"></i>Strona główna</a>
+                <a class="nav-link" href="/ml"><i class="fas fa-robot me-1"></i>Panel ML</a>
+                <a class="nav-link active" href="/import"><i class="fas fa-upload me-1"></i>Import Danych</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <!-- Status Panel -->
+            <div class="col-md-4">
+                <div class="card status-card mb-4">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="fas fa-database me-2"></i>Status Bazy Danych</h5>
+                    </div>
+                    <div class="card-body" id="database-status">
+                        <div class="text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Ładowanie...</span>
+                            </div>
+                            <p class="mt-2">Sprawdzanie statusu...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Kontrola bazy danych -->
+                <div class="card status-card mb-4">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0"><i class="fas fa-cogs me-2"></i>Zarządzanie Bazą</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-outline-primary" onclick="createBackup()">
+                                <i class="fas fa-save me-2"></i>Utwórz Backup
+                            </button>
+                            <button class="btn btn-outline-warning" onclick="analyzeData()">
+                                <i class="fas fa-chart-bar me-2"></i>Analiza Danych
+                            </button>
+                            <button class="btn btn-outline-danger" onclick="clearDatabase()">
+                                <i class="fas fa-trash me-2"></i>Wyczyść Bazę
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Instrukcje -->
+                <div class="card status-card">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Instrukcje</h5>
+                    </div>
+                    <div class="card-body">
+                        <h6>Format plików TXT:</h6>
+                        <code style="font-size: 0.8em;">
+                            TICKER,PER,DATE,TIME,OPEN,HIGH,LOW,CLOSE,VOL,OPENINT
+                        </code>
+                        <hr>
+                        <h6>Przykład:</h6>
+                        <code style="font-size: 0.8em;">
+                            CDR,5,20250124,090000,51.5,51.7,51.5,51.6,105,0
+                        </code>
+                        <hr>
+                        <div class="file-info">
+                            <i class="fas fa-clock me-1"></i>Okres: 5-minutowy<br>
+                            <i class="fas fa-file-alt me-1"></i>Format: CSV<br>
+                            <i class="fas fa-upload me-1"></i>Upload: Przeciągnij lub kliknij
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Import Panel -->
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="mb-0"><i class="fas fa-upload me-2"></i>Import Danych Historycznych</h4>
+                    </div>
+                    <div class="card-body">
+                        <!-- Drop Zone -->
+                        <div class="import-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+                            <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                            <h5>Przeciągnij pliki TXT tutaj</h5>
+                            <p class="text-muted">lub kliknij, aby wybrać pliki</p>
+                            <input type="file" id="file-input" multiple accept=".txt" style="display: none;">
+                        </div>
+
+                        <!-- Selected Files -->
+                        <div id="selected-files" class="mt-3" style="display: none;">
+                            <h6>Wybrane pliki:</h6>
+                            <div id="files-list" class="list-group"></div>
+                        </div>
+
+                        <!-- Import Button -->
+                        <div class="text-center mt-3">
+                            <button id="import-btn" class="btn btn-success btn-lg" onclick="startImport()" disabled>
+                                <i class="fas fa-play me-2"></i>Rozpocznij Import
+                            </button>
+                        </div>
+
+                        <!-- Progress -->
+                        <div class="progress-wrapper" id="progress-wrapper">
+                            <h6>Postęp importu:</h6>
+                            <div class="progress mb-2">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                     id="progress-bar" role="progressbar" style="width: 0%"></div>
+                            </div>
+                            <div id="progress-text" class="text-center text-muted">Przygotowywanie...</div>
+                            <div class="text-center mt-2">
+                                <button id="cancel-btn" class="btn btn-danger btn-sm" onclick="cancelImport()" style="display: none;">
+                                    <i class="fas fa-stop me-2"></i>Anuluj Import
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Results -->
+                        <div class="result-box" id="result-box">
+                            <div class="alert" id="result-alert">
+                                <div id="result-content"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analytics Panel -->
+                <div class="card mt-4" id="analytics-panel" style="display: none;">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Analiza Danych</h5>
+                    </div>
+                    <div class="card-body" id="analytics-content">
+                        <!-- Analiza zostanie załadowana dynamicznie -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let selectedFiles = [];
+        let currentJobId = null;
+        let pollInterval = null;
+        
+        // Load database status on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDatabaseStatus();
+        });
+
+        // Drag and Drop functionality
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+
+        dropZone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', function() {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        fileInput.addEventListener('change', function() {
+            handleFiles(this.files);
+        });
+
+        function handleFiles(files) {
+            selectedFiles = Array.from(files).filter(file => file.name.endsWith('.txt'));
+            
+            if (selectedFiles.length === 0) {
+                alert('Proszę wybrać pliki TXT');
+                return;
+            }
+
+            displaySelectedFiles();
+            document.getElementById('import-btn').disabled = false;
+        }
+
+        function displaySelectedFiles() {
+            const container = document.getElementById('selected-files');
+            const list = document.getElementById('files-list');
+            
+            list.innerHTML = '';
+            selectedFiles.forEach(file => {
+                const item = document.createElement('div');
+                item.className = 'list-group-item d-flex justify-content-between align-items-center';
+                item.innerHTML = `
+                    <span><i class="fas fa-file-alt me-2"></i>${file.name}</span>
+                    <span class="badge bg-primary rounded-pill">${(file.size / 1024).toFixed(1)} KB</span>
+                `;
+                list.appendChild(item);
+            });
+            
+            container.style.display = 'block';
+        }
+
+        function startImport() {
+            if (selectedFiles.length === 0) return;
+
+            const formData = new FormData();
+            selectedFiles.forEach(file => {
+                formData.append('files', file);
+            });
+
+            // Show progress
+            document.getElementById('progress-wrapper').style.display = 'block';
+            document.getElementById('result-box').style.display = 'none';
+            document.getElementById('import-btn').disabled = true;
+
+            // Update progress bar
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
+            
+            progressBar.style.width = '5%';
+            progressText.textContent = 'Uploading files...';
+
+            // Start async import
+            fetch('/api/import/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Import started, begin polling for progress
+                    currentJobId = data.job_id;
+                    progressBar.style.width = '10%';
+                    progressText.textContent = 'Import started, processing files...';
+                    document.getElementById('cancel-btn').style.display = 'inline-block';
+                    pollImportProgress(data.job_id);
+                } else {
+                    showError(data.error || 'Unknown error starting import');
+                }
+            })
+            .catch(error => {
+                console.error('Error starting import:', error);
+                showError('Błąd podczas rozpoczynania importu: ' + error.message);
+                document.getElementById('import-btn').disabled = false;
+                document.getElementById('progress-wrapper').style.display = 'none';
+            });
+        }
+
+        function pollImportProgress(jobId) {
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
+            
+            pollInterval = setInterval(() => {
+                fetch(`/api/import/status/${jobId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.job) {
+                        const job = data.job;
+                        
+                        // Update progress bar
+                        progressBar.style.width = job.progress + '%';
+                        
+                        // Update progress text
+                        let statusText = job.message || 'Processing...';
+                        if (job.current_file) {
+                            statusText += ` (${job.current_file})`;
+                        }
+                        if (job.total_files > 0) {
+                            statusText += ` [${job.processed_files}/${job.total_files}]`;
+                        }
+                        progressText.textContent = statusText;
+                        
+                        // Check if completed, failed, or cancelled
+                        if (job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled') {
+                            clearInterval(pollInterval);
+                            currentJobId = null;
+                            document.getElementById('cancel-btn').style.display = 'none';
+                            
+                            if (job.status === 'completed') {
+                                setTimeout(() => {
+                                    showImportResults({
+                                        success: true,
+                                        import_stats: job.stats,
+                                        message: job.message
+                                    });
+                                    loadDatabaseStatus(); // Refresh status
+                                }, 500);
+                            } else if (job.status === 'cancelled') {
+                                showError('Import został anulowany');
+                            } else {
+                                showError(job.error || 'Import failed');
+                            }
+                            
+                            document.getElementById('import-btn').disabled = false;
+                        }
+                    } else {
+                        clearInterval(pollInterval);
+                        currentJobId = null;
+                        document.getElementById('cancel-btn').style.display = 'none';
+                        showError('Error checking import status');
+                        document.getElementById('import-btn').disabled = false;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error polling status:', error);
+                    clearInterval(pollInterval);
+                    currentJobId = null;
+                    document.getElementById('cancel-btn').style.display = 'none';
+                    showError('Error checking import progress');
+                    document.getElementById('import-btn').disabled = false;
+                });
+            }, 1000); // Poll every second
+        }
+
+        function cancelImport() {
+            if (!currentJobId) {
+                alert('Brak aktywnego importu do anulowania');
+                return;
+            }
+
+            if (!confirm('Czy na pewno chcesz anulować import?')) {
+                return;
+            }
+
+            fetch(`/api/import/cancel/${currentJobId}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // The polling will detect the cancelled status and clean up
+                    document.getElementById('progress-text').textContent = 'Anulowanie importu...';
+                } else {
+                    alert('Błąd anulowania: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error cancelling import:', error);
+                alert('Błąd podczas anulowania importu');
+            });
+        }
+
+        function showImportResults(data) {
+            const resultBox = document.getElementById('result-box');
+            const resultAlert = document.getElementById('result-alert');
+            const resultContent = document.getElementById('result-content');
+
+            if (data.success) {
+                resultAlert.className = 'alert alert-success';
+                resultContent.innerHTML = `
+                    <h6><i class="fas fa-check-circle me-2"></i>Import zakończony pomyślnie!</h6>
+                    <p><strong>Zaimportowano:</strong> ${data.import_stats.imported} rekordów</p>
+                    <p><strong>Pominięto:</strong> ${data.import_stats.skipped} rekordów</p>
+                    <p><strong>Błędy:</strong> ${data.import_stats.errors} rekordów</p>
+                    <p><strong>Przetworzone pliki:</strong> ${data.import_stats.files}</p>
+                `;
+            } else {
+                resultAlert.className = 'alert alert-danger';
+                resultContent.innerHTML = `
+                    <h6><i class="fas fa-exclamation-triangle me-2"></i>Błąd importu</h6>
+                    <p>${data.error}</p>
+                `;
+            }
+
+            resultBox.style.display = 'block';
+            document.getElementById('progress-wrapper').style.display = 'none';
+        }
+
+        function showError(message) {
+            const resultBox = document.getElementById('result-box');
+            const resultAlert = document.getElementById('result-alert');
+            const resultContent = document.getElementById('result-content');
+
+            resultAlert.className = 'alert alert-danger';
+            resultContent.innerHTML = `
+                <h6><i class="fas fa-exclamation-triangle me-2"></i>Błąd</h6>
+                <p>${message}</p>
+            `;
+
+            resultBox.style.display = 'block';
+            document.getElementById('progress-wrapper').style.display = 'none';
+            document.getElementById('cancel-btn').style.display = 'none';
+            
+            // Clear any active polling
+            if (pollInterval) {
+                clearInterval(pollInterval);
+                pollInterval = null;
+            }
+            currentJobId = null;
+        }
+
+        function loadDatabaseStatus() {
+            fetch('/api/import/status')
+                .then(response => response.json())
+                .then(data => {
+                    const statusDiv = document.getElementById('database-status');
+                    
+                    if (data.success) {
+                        if (data.has_data) {
+                            statusDiv.innerHTML = `
+                                <div class="text-success mb-3">
+                                    <i class="fas fa-database fa-2x"></i>
+                                    <h6 class="mt-2">Baza zawiera dane</h6>
+                                </div>
+                                <ul class="list-unstyled">
+                                    <li><i class="fas fa-chart-bar me-2"></i>Rekordy: <strong>${data.total_records.toLocaleString()}</strong></li>
+                                    <li><i class="fas fa-building me-2"></i>Spółki: <strong>${data.total_tickers}</strong></li>
+                                    <li><i class="fas fa-calendar me-2"></i>Od: <strong>${data.date_range.min || 'N/A'}</strong></li>
+                                    <li><i class="fas fa-calendar-alt me-2"></i>Do: <strong>${data.date_range.max || 'N/A'}</strong></li>
+                                </ul>
+                            `;
+                        } else {
+                            statusDiv.innerHTML = `
+                                <div class="text-warning text-center">
+                                    <i class="fas fa-database fa-2x"></i>
+                                    <h6 class="mt-2">Baza jest pusta</h6>
+                                    <p class="text-muted">Zaimportuj dane historyczne</p>
+                                </div>
+                            `;
+                        }
+                    } else {
+                        statusDiv.innerHTML = `
+                            <div class="text-danger text-center">
+                                <i class="fas fa-exclamation-triangle fa-2x"></i>
+                                <h6 class="mt-2">Błąd sprawdzania bazy</h6>
+                                <p class="text-muted">${data.error}</p>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading status:', error);
+                    document.getElementById('database-status').innerHTML = `
+                        <div class="text-danger text-center">
+                            <i class="fas fa-exclamation-triangle fa-2x"></i>
+                            <h6 class="mt-2">Błąd połączenia</h6>
+                        </div>
+                    `;
+                });
+        }
+
+        function createBackup() {
+            if (!confirm('Czy na pewno utworzyć backup bazy danych?')) return;
+
+            fetch('/api/import/backup', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✅ Backup utworzony: ' + data.backup_file);
+                } else {
+                    alert('❌ Błąd: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('❌ Błąd: ' + error.message);
+            });
+        }
+
+        function clearDatabase() {
+            if (!confirm('⚠️ UWAGA! To usunie wszystkie dane z bazy. Czy na pewno kontynuować?')) return;
+            if (!confirm('🔥 Czy na pewno usunąć WSZYSTKIE dane? Ta operacja jest nieodwracalna!')) return;
+
+            fetch('/api/import/clear', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({backup: true})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✅ ' + data.message + (data.backup_file ? '\n💾 Backup: ' + data.backup_file : ''));
+                    loadDatabaseStatus(); // Refresh status
+                } else {
+                    alert('❌ Błąd: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('❌ Błąd: ' + error.message);
+            });
+        }
+
+        function analyzeData() {
+            console.log('Starting data analysis...');
+            fetch('/api/import/analyze')
+                .then(response => {
+                    console.log('Analysis response status:', response.status);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Analysis data received:', data);
+                    if (data.success) {
+                        showAnalytics(data);
+                    } else {
+                        console.error('Analysis failed:', data.error);
+                        alert('❌ Błąd analizy: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Analysis error:', error);
+                    alert('❌ Błąd: ' + error.message);
+                });
+        }
+
+        function showAnalytics(data) {
+            console.log('showAnalytics called with data:', data);
+            const panel = document.getElementById('analytics-panel');
+            const content = document.getElementById('analytics-content');
+            
+            const basicStats = data.basic_stats;
+            const qualityData = data.data_quality;
+            const completeness = data.completeness;
+            const mlReadiness = data.ml_readiness;
+
+            console.log('Extracted sections:', {basicStats, qualityData, completeness, mlReadiness});
+
+            // Extract data safely
+            const totalRecords = basicStats.quotes_intraday?.total_records || 0;
+            const totalCompanies = basicStats.companies?.total_count || 0;
+            const firstDate = basicStats.quotes_intraday?.first_date || 'N/A';
+            const lastDate = basicStats.quotes_intraday?.last_date || 'N/A';
+            
+            console.log('Basic stats:', {totalRecords, totalCompanies, firstDate, lastDate});
+            
+            // Quality metrics from the quality data
+            const totalTickers = qualityData?.quality_summary?.total_tickers || 0;
+            const tickersWithData = qualityData?.quality_summary?.tickers_with_intraday || 0;
+            const tickersWithGaps = qualityData?.quality_summary?.tickers_with_gaps || 0;
+            const currentTickers = qualityData?.quality_summary?.tickers_current || 0;
+            
+            console.log('Quality metrics:', {totalTickers, tickersWithData, tickersWithGaps, currentTickers});
+            
+            // ML readiness data
+            const mlScore = mlReadiness?.ml_readiness_score || 0;
+            const mlLevel = mlReadiness?.readiness_level || 'N/A';
+            const mlColor = mlReadiness?.readiness_color || 'secondary';
+
+            console.log('ML metrics:', {mlScore, mlLevel, mlColor});
+
+            content.innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-chart-bar me-2"></i>Podstawowe Statystyki</h6>
+                        <ul class="list-unstyled">
+                            <li>📊 Rekordy: <strong>${totalRecords.toLocaleString()}</strong></li>
+                            <li>🏢 Spółki: <strong>${totalCompanies}</strong></li>
+                            <li>📅 Okres: <strong>${firstDate.split(' ')[0]} - ${lastDate.split(' ')[0]}</strong></li>
+                        </ul>
+                        
+                        <h6 class="mt-4"><i class="fas fa-cogs me-2"></i>Jakość Danych</h6>
+                        <ul class="list-unstyled">
+                            <li>✅ Spółki z danymi: <strong>${tickersWithData}/${totalTickers}</strong></li>
+                            <li>📊 Aktualne: <strong>${currentTickers}</strong></li>
+                            <li>⚠️ Z lukami: <strong>${tickersWithGaps}</strong></li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-robot me-2"></i>Gotowość ML</h6>
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span>Wynik ML:</span>
+                                <span class="badge bg-${mlColor} fs-6">${mlScore}/100</span>
+                            </div>
+                            <div class="progress">
+                                <div class="progress-bar bg-${mlColor}" style="width: ${mlScore}%"></div>
+                            </div>
+                            <small class="text-muted">Status: <strong>${mlLevel}</strong></small>
+                        </div>
+                        
+                        <h6><i class="fas fa-chart-line me-2"></i>Kompletność</h6>
+                        <ul class="list-unstyled">
+                            <li>📈 Średnia kompletność: <strong>${(completeness?.overall_completeness * 100 || 0).toFixed(1)}%</strong></li>
+                            <li>🎯 Najlepsze tickery: <strong>${completeness?.ticker_completeness?.slice(0,3).map(t => t.ticker).join(', ') || 'Brak'}</strong></li>
+                        </ul>
+                    </div>
+                </div>
+                
+                ${qualityData?.top_tickers_by_records?.length > 0 ? `
+                <div class="mt-4">
+                    <h6><i class="fas fa-trophy me-2"></i>Top spółki (według rekordów):</h6>
+                    <div class="row">
+                        ${qualityData.top_tickers_by_records.slice(0, 6).map(ticker => `
+                            <div class="col-md-4 mb-2">
+                                <div class="card card-body p-2 border-light">
+                                    <div class="d-flex justify-content-between">
+                                        <strong>${ticker.ticker}</strong>
+                                        <small class="text-muted">${ticker.intraday_records.toLocaleString()} rek.</small>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                ` : ''}
+                
+                ${mlReadiness?.factors?.length > 0 ? `
+                <div class="mt-4">
+                    <h6><i class="fas fa-list-check me-2"></i>Czynniki ML:</h6>
+                    <ul class="list-unstyled">
+                        ${mlReadiness.factors.map(factor => `<li><small>${factor}</small></li>`).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+            `;
+
+            panel.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

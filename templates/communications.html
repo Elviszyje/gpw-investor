@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Komunikaty ESPI/EBI - GPW Investor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .container-fluid {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            margin: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+        }
+        .card-header {
+            border: none;
+            border-radius: 15px 15px 0 0 !important;
+            padding: 1.25rem;
+        }
+        .btn {
+            border-radius: 10px;
+            font-weight: 600;
+            padding: 0.75rem 1.5rem;
+            transition: all 0.3s ease;
+            border: none;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+        .form-control, .form-select {
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+            padding: 0.75rem 1rem;
+            transition: all 0.3s ease;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        .alert {
+            border: none;
+            border-radius: 10px;
+            padding: 1rem 1.25rem;
+        }
+        .breadcrumb {
+            background: none;
+            padding: 0;
+        }
+        .breadcrumb-item a {
+            color: #667eea;
+            transition: color 0.3s ease;
+        }
+        .breadcrumb-item a:hover {
+            color: #764ba2;
+        }
+        .text-primary {
+            color: #667eea !important;
+        }
+        .bg-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        }
+        .bg-success {
+            background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%) !important;
+        }
+        .bg-warning {
+            background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%) !important;
+        }
+        .bg-info {
+            background: linear-gradient(135deg, #17a2b8 0%, #138496 100%) !important;
+        }
+        .communication-item {
+            border-left: 4px solid #667eea;
+            transition: all 0.3s ease;
+        }
+        .communication-item:hover {
+            border-left-color: #764ba2;
+            background-color: #f8f9fa;
+        }
+        .communication-type-espi {
+            border-left-color: #28a745 !important;
+        }
+        .communication-type-ebi {
+            border-left-color: #17a2b8 !important;
+        }
+        .stats-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-left: 4px solid #667eea;
+        }
+        .filter-section {
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-4">
+        <!-- Breadcrumb -->
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('index') }}" class="text-decoration-none">
+                        <i class="fas fa-home me-1"></i>Strona główna
+                    </a>
+                </li>
+                <li class="breadcrumb-item active" aria-current="page">
+                    <i class="fas fa-bullhorn me-1"></i>Komunikaty ESPI/EBI
+                </li>
+            </ol>
+        </nav>
+
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="h2 mb-1">
+                    <i class="fas fa-bullhorn me-2 text-primary"></i>
+                    Komunikaty ESPI/EBI
+                </h1>
+                <p class="text-muted mb-0">Komunikaty giełdowe z GPW</p>
+            </div>
+            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Powrót
+            </a>
+        </div>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'danger' else 'warning' if category == 'warning' else 'success' }} alert-dismissible fade show" role="alert">
+                        <i class="fas fa-{{ 'exclamation-triangle' if category == 'danger' else 'exclamation-circle' if category == 'warning' else 'check-circle' }} me-2"></i>
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Statistics Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card stats-card">
+                    <div class="card-body text-center">
+                        <h3 class="text-primary">{{ stats.total }}</h3>
+                        <p class="mb-0">Łączna liczba komunikatów</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stats-card">
+                    <div class="card-body text-center">
+                        <h3 class="text-success">{{ stats.by_type.get('ESPI', 0) }}</h3>
+                        <p class="mb-0">Komunikaty ESPI</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stats-card">
+                    <div class="card-body text-center">
+                        <h3 class="text-info">{{ stats.by_type.get('EBI', 0) }}</h3>
+                        <p class="mb-0">Komunikaty EBI</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stats-card">
+                    <div class="card-body text-center">
+                        {% if stats.newest_date %}
+                            <h6 class="text-warning">{{ stats.newest_date.strftime('%Y-%m-%d') }}</h6>
+                            <p class="mb-0">Najnowszy komunikat</p>
+                        {% else %}
+                            <h6 class="text-muted">Brak danych</h6>
+                            <p class="mb-0">Najnowszy komunikat</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters and Scraping Controls -->
+        <div class="filter-section">
+            <div class="row">
+                <div class="col-lg-8">
+                    <h5 class="mb-3"><i class="fas fa-filter me-2"></i>Filtry</h5>
+                    <form method="GET" class="row g-3">
+                        <div class="col-md-3">
+                            <label for="ticker" class="form-label">Spółka:</label>
+                            <select class="form-select" id="ticker" name="ticker">
+                                <option value="">Wszystkie spółki</option>
+                                {% for ticker in active_tickers %}
+                                    <option value="{{ ticker }}" {{ 'selected' if ticker == current_ticker else '' }}>
+                                        {{ ticker }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="type" class="form-label">Typ:</label>
+                            <select class="form-select" id="type" name="type">
+                                <option value="">Wszystkie typy</option>
+                                <option value="ESPI" {{ 'selected' if current_type == 'ESPI' else '' }}>ESPI</option>
+                                <option value="EBI" {{ 'selected' if current_type == 'EBI' else '' }}>EBI</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="days" class="form-label">Okres (dni):</label>
+                            <select class="form-select" id="days" name="days">
+                                <option value="7" {{ 'selected' if current_days == 7 else '' }}>7 dni</option>
+                                <option value="14" {{ 'selected' if current_days == 14 else '' }}>14 dni</option>
+                                <option value="30" {{ 'selected' if current_days == 30 else '' }}>30 dni</option>
+                                <option value="90" {{ 'selected' if current_days == 90 else '' }}>90 dni</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-search me-1"></i>Filtruj
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                <div class="col-lg-4">
+                    <h5 class="mb-3"><i class="fas fa-download me-2"></i>Pobieranie</h5>
+                    <div class="row g-3 mb-3">
+                        <div class="col-8">
+                            <form method="POST" action="{{ url_for('scrapers.scrape_communications') }}">
+                                <label for="days_back" class="form-label">Pobierz z ostatnich dni:</label>
+                                <select class="form-select" id="days_back" name="days_back">
+                                    <option value="3">3 dni</option>
+                                    <option value="7" selected>7 dni</option>
+                                    <option value="14">14 dni</option>
+                                    <option value="30">30 dni</option>
+                                </select>
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="submit" class="btn btn-success w-100">
+                                <i class="fas fa-download me-1"></i>Pobierz
+                            </button>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <!-- Scheduler Control -->
+                    <div class="mt-3 pt-3 border-top">
+                        <h6 class="mb-2"><i class="fas fa-clock me-2"></i>Automatyczne pobieranie</h6>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <button type="button" class="btn btn-outline-primary btn-sm w-100" onclick="toggleScheduler()">
+                                    <i class="fas fa-play me-1"></i><span id="scheduler-btn-text">Uruchom</span>
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <select class="form-select form-select-sm" id="scheduler-interval" onchange="updateInterval()">
+                                    <option value="1" selected>1h</option>
+                                    <option value="2">2h</option>
+                                    <option value="4">4h</option>
+                                    <option value="6">6h</option>
+                                    <option value="12">12h</option>
+                                    <option value="24">24h</option>
+                                </select>
+                            </div>
+                        </div>
+                        <small class="text-muted mt-1 d-block" id="scheduler-status">Scheduler zatrzymany</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Communications List -->
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-list me-2"></i>
+                    Komunikaty ({{ communications|length }})
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if communications %}
+                    {% for comm in communications %}
+                        <div class="communication-item communication-type-{{ comm.communication_type.lower() }} p-3 mb-3 border rounded">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <h6 class="mb-2">
+                                        <span class="badge bg-{{ 'success' if comm.communication_type == 'ESPI' else 'info' }} me-2">
+                                            {{ comm.communication_type }}
+                                        </span>
+                                        <span class="badge bg-secondary me-2">{{ comm.ticker }}</span>
+                                        {{ comm.title }}
+                                    </h6>
+                                    {% if comm.content %}
+                                        <p class="text-muted mb-2">{{ comm.content[:200] }}{% if comm.content|length > 200 %}...{% endif %}</p>
+                                    {% endif %}
+                                    {% if comm.url %}
+                                        <a href="{{ comm.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-external-link-alt me-1"></i>Zobacz szczegóły
+                                        </a>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4 text-end">
+                                    <div class="mb-2">
+                                        <small class="text-muted">
+                                            <i class="fas fa-calendar me-1"></i>
+                                            {{ comm.publication_date.strftime('%Y-%m-%d %H:%M') }}
+                                        </small>
+                                    </div>
+                                    <div>
+                                        {% if comm.is_processed %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-check me-1"></i>Przetworzone
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-warning">
+                                                <i class="fas fa-clock me-1"></i>Nowe
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">Brak komunikatów</h5>
+                        <p class="text-muted">Nie znaleziono komunikatów dla wybranych kryteriów.</p>
+                        <a href="{{ url_for('scrapers.show_communications') }}" class="btn btn-primary">
+                            <i class="fas fa-refresh me-1"></i>Odśwież
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Scheduler Control Functions -->
+    <script>
+        let schedulerRunning = false;
+        
+        // Update scheduler status on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            updateSchedulerStatus();
+        });
+        
+        function updateSchedulerStatus() {
+            fetch('/api/espi_scheduler_status')
+                .then(response => response.json())
+                .then(data => {
+                    schedulerRunning = data.is_running;
+                    const btnText = document.getElementById('scheduler-btn-text');
+                    const status = document.getElementById('scheduler-status');
+                    const btn = btnText.parentElement;
+                    
+                    if (schedulerRunning) {
+                        btnText.innerHTML = '<i class="fas fa-stop me-1"></i>Zatrzymaj';
+                        btn.className = 'btn btn-outline-danger btn-sm w-100';
+                        status.textContent = `Uruchomiony (${data.interval_hours}h)`;
+                        if (data.next_run) {
+                            const nextRun = new Date(data.next_run);
+                            status.textContent += ` - Następne: ${nextRun.toLocaleTimeString()}`;
+                        }
+                    } else {
+                        btnText.innerHTML = '<i class="fas fa-play me-1"></i>Uruchom';
+                        btn.className = 'btn btn-outline-primary btn-sm w-100';
+                        status.textContent = 'Scheduler zatrzymany';
+                    }
+                    
+                    // Update interval select
+                    document.getElementById('scheduler-interval').value = data.interval_hours;
+                })
+                .catch(error => console.error('Error fetching scheduler status:', error));
+        }
+        
+        function toggleScheduler() {
+            const action = schedulerRunning ? 'stop' : 'start';
+            
+            fetch(`/api/espi_scheduler/${action}`, {method: 'POST'})
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        setTimeout(updateSchedulerStatus, 500);
+                    } else {
+                        alert('Błąd: ' + (data.error || 'Nieznany błąd'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error toggling scheduler:', error);
+                    alert('Błąd komunikacji z serwerem');
+                });
+        }
+        
+        function updateInterval() {
+            const interval = document.getElementById('scheduler-interval').value;
+            
+            fetch('/api/espi_scheduler/interval', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({hours: parseInt(interval)})
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        setTimeout(updateSchedulerStatus, 500);
+                    } else {
+                        alert('Błąd zmiany interwału: ' + (data.error || 'Nieznany błąd'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error updating interval:', error);
+                    alert('Błąd komunikacji z serwerem');
+                });
+        }
+        
+        // Auto-refresh stats and scheduler status
+        setInterval(function() {
+            // Refresh stats
+            fetch('{{ url_for("scrapers.api_communications_stats") }}')
+                .then(response => response.json())
+                .then(data => {
+                    document.querySelector('.stats-card:first-child h3').textContent = data.total;
+                    document.querySelector('.stats-card:nth-child(2) h3').textContent = data.by_type.ESPI || 0;
+                    document.querySelector('.stats-card:nth-child(3) h3').textContent = data.by_type.EBI || 0;
+                })
+                .catch(error => console.error('Error refreshing stats:', error));
+            
+            // Refresh scheduler status
+            updateSchedulerStatus();
+        }, 30000); // Every 30 seconds
+    </script>
+</body>
+</html>

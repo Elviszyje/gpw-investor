@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitorowanie Schedulerów - GPW Investor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .status-card {
+            border-left: 5px solid #dc3545;
+            transition: all 0.3s ease;
+        }
+        .status-card.running {
+            border-left-color: #28a745;
+        }
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .status-running {
+            background-color: #28a745;
+            animation: pulse 2s infinite;
+        }
+        .status-stopped {
+            background-color: #dc3545;
+        }
+        .status-warning {
+            background-color: #ffc107;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+        }
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+        }
+        .auto-refresh {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        .refresh-countdown {
+            font-size: 0.8em;
+            opacity: 0.7;
+        }
+        .scheduler-actions {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+        .scheduler-actions .btn {
+            font-size: 0.8em;
+            padding: 0.25rem 0.5rem;
+        }
+        .log-entry {
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            background-color: #2d3748;
+            color: #e2e8f0;
+            padding: 5px 10px;
+            border-radius: 3px;
+            margin-bottom: 3px;
+        }
+        .log-error {
+            background-color: #742a2a;
+            color: #fed7d7;
+        }
+        .ticker-list {
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        .ticker-badge {
+            font-size: 0.7em;
+            margin: 1px;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="fas fa-chart-line"></i> GPW Investor
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="{{ url_for('index') }}">
+                    <i class="fas fa-home"></i> Główna
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Auto-refresh controls -->
+    <div class="auto-refresh">
+        <div class="card bg-dark text-white">
+            <div class="card-body p-2">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="autoRefresh" checked>
+                    <label class="form-check-label" for="autoRefresh">
+                        Auto-odświeżanie
+                    </label>
+                </div>
+                <div class="refresh-countdown" id="refreshCountdown">
+                    Odświeżanie za: 30s
+                </div>
+                <button class="btn btn-sm btn-outline-light mt-1" onclick="refreshData()">
+                    <i class="fas fa-sync-alt"></i> Odśwież teraz
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <div class="col-12">
+                <h2 class="mb-4">
+                    <i class="fas fa-tasks"></i> Monitorowanie Schedulerów
+                    <small class="text-muted fs-6">
+                        Ostatnia aktualizacja: <span id="lastUpdate">{{ current_time.strftime('%H:%M:%S') }}</span>
+                    </small>
+                </h2>
+            </div>
+        </div>
+
+        <!-- System Metrics -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card metric-card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-clock fa-2x mb-2"></i>
+                        <h6>Uptime Systemu</h6>
+                        <h5 id="systemUptime">{{ system_uptime }}</h5>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card metric-card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-microchip fa-2x mb-2"></i>
+                        <h6>Aktywne Wątki</h6>
+                        <h5 id="activeThreads">{{ active_threads }}</h5>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card metric-card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-memory fa-2x mb-2"></i>
+                        <h6>Użycie CPU</h6>
+                        <h5 id="cpuUsage">0%</h5>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card metric-card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-hdd fa-2x mb-2"></i>
+                        <h6>Pamięć RAM</h6>
+                        <h5 id="memoryUsage">0 MB</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Schedulers Status -->
+        <div class="row">
+            <!-- Multi-Ticker Scheduler -->
+            <div class="col-lg-4 mb-4">
+                <div class="card status-card h-100" id="multiTickerCard">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <span class="status-indicator" id="multiTickerIndicator"></span>
+                            <i class="fas fa-chart-bar"></i> Multi-Ticker Scheduler
+                        </h6>
+                        <div class="scheduler-actions">
+                            <button class="btn btn-success btn-sm" id="startMultiTicker" onclick="controlScheduler('multi', 'start')">
+                                <i class="fas fa-play"></i>
+                            </button>
+                            <button class="btn btn-danger btn-sm" id="stopMultiTicker" onclick="controlScheduler('multi', 'stop')">
+                                <i class="fas fa-stop"></i>
+                            </button>
+                            <button class="btn btn-primary btn-sm" onclick="manualScrape('multi')">
+                                <i class="fas fa-sync"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-6">
+                                <small class="text-muted">Status:</small><br>
+                                <span id="multiTickerStatus" class="fw-bold">
+                                    {% if multi_status.is_running %}
+                                        <span class="text-success">Uruchomiony</span>
+                                    {% else %}
+                                        <span class="text-danger">Zatrzymany</span>
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted">Interwał:</small><br>
+                                <span id="multiTickerInterval">{{ multi_status.interval_minutes }} min</span>
+                            </div>
+                        </div>
+
+                        <div class="mt-3">
+                            <small class="text-muted">Aktywne Tickery ({{ multi_status.active_tickers|length }}):</small>
+                            <div class="ticker-list mt-2" id="multiTickerList">
+                                {% for ticker in multi_status.active_tickers %}
+                                    <span class="badge bg-secondary ticker-badge">{{ ticker }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="mt-3">
+                            <small class="text-muted">Ustawienia:</small><br>
+                            <small>
+                                Selenium: 
+                                {% if multi_status.use_selenium %}
+                                    <span class="text-success">Włączony</span>
+                                {% else %}
+                                    <span class="text-warning">Wyłączony</span>
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- News Scheduler -->
+            <div class="col-lg-4 mb-4">
+                <div class="card status-card h-100" id="newsCard">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <span class="status-indicator" id="newsIndicator"></span>
+                            <i class="fas fa-newspaper"></i> News Scheduler
+                        </h6>
+                        <div class="scheduler-actions">
+                            <button class="btn btn-success btn-sm" id="startNews" onclick="controlScheduler('news', 'start')">
+                                <i class="fas fa-play"></i>
+                            </button>
+                            <button class="btn btn-danger btn-sm" id="stopNews" onclick="controlScheduler('news', 'stop')">
+                                <i class="fas fa-stop"></i>
+                            </button>
+                            <button class="btn btn-primary btn-sm" onclick="manualScrape('news')">
+                                <i class="fas fa-sync"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-6">
+                                <small class="text-muted">Status:</small><br>
+                                <span id="newsStatus" class="fw-bold">
+                                    {% if news_status.is_running %}
+                                        <span class="text-success">Uruchomiony</span>
+                                    {% else %}
+                                        <span class="text-danger">Zatrzymany</span>
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted">Interwały:</small><br>
+                                <small>News: {{ news_status.news_interval_minutes }}min</small><br>
+                                <small>ESPI: {{ news_status.espi_interval_minutes }}min</small>
+                            </div>
+                        </div>
+
+                        <div class="mt-3">
+                            <small class="text-muted">Ostatnie uruchomienia:</small><br>
+                            <small>
+                                News: 
+                                {% if news_status.last_news_run %}
+                                    {{ news_status.last_news_run }}
+                                {% else %}
+                                    <span class="text-muted">Nigdy</span>
+                                {% endif %}
+                            </small><br>
+                            <small>
+                                ESPI: 
+                                {% if news_status.last_espi_run %}
+                                    {{ news_status.last_espi_run }}
+                                {% else %}
+                                    <span class="text-muted">Nigdy</span>
+                                {% endif %}
+                            </small>
+                        </div>
+
+                        <div class="mt-3">
+                            <small class="text-muted">Ostatnie wyniki:</small><br>
+                            <small>
+                                News: {{ news_status.last_news_results.total }} artykułów<br>
+                                ESPI: {{ news_status.last_espi_results.total }} komunikatów
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ESPI Scheduler -->
+            <div class="col-lg-4 mb-4">
+                <div class="card status-card h-100" id="espiCard">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <span class="status-indicator" id="espiIndicator"></span>
+                            <i class="fas fa-file-alt"></i> ESPI Scheduler
+                        </h6>
+                        <div class="scheduler-actions">
+                            <button class="btn btn-success btn-sm" id="startEspi" onclick="controlScheduler('espi', 'start')">
+                                <i class="fas fa-play"></i>
+                            </button>
+                            <button class="btn btn-danger btn-sm" id="stopEspi" onclick="controlScheduler('espi', 'stop')">
+                                <i class="fas fa-stop"></i>
+                            </button>
+                            <button class="btn btn-primary btn-sm" onclick="manualScrape('espi')">
+                                <i class="fas fa-sync"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-6">
+                                <small class="text-muted">Status:</small><br>
+                                <span id="espiStatus" class="fw-bold">
+                                    {% if espi_status.is_running %}
+                                        <span class="text-success">Uruchomiony</span>
+                                    {% else %}
+                                        <span class="text-danger">Zatrzymany</span>
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted">Interwał:</small><br>
+                                <span id="espiInterval">{{ espi_status.interval_hours }} h</span>
+                            </div>
+                        </div>
+
+                        <div class="mt-3">
+                            <small class="text-muted">Ostatnie uruchomienie:</small><br>
+                            <span id="espiLastRun">
+                                {% if espi_status.last_run %}
+                                    {{ espi_status.last_run }}
+                                {% else %}
+                                    <span class="text-muted">Nigdy</span>
+                                {% endif %}
+                            </span>
+                        </div>
+
+                        <div class="mt-3">
+                            <small class="text-muted">Następne uruchomienie:</small><br>
+                            <span id="espiNextRun">
+                                {% if espi_status.next_run %}
+                                    {{ espi_status.next_run }}
+                                {% else %}
+                                    <span class="text-muted">N/A</span>
+                                {% endif %}
+                            </span>
+                        </div>
+
+                        {% if espi_status.last_results %}
+                        <div class="mt-3">
+                            <small class="text-muted">Ostatnie wyniki:</small><br>
+                            <small>
+                                ESPI: {{ espi_status.last_results.get('ESPI', 0) }}<br>
+                                EBI: {{ espi_status.last_results.get('EBI', 0) }}<br>
+                                Razem: {{ espi_status.last_results.get('total', 0) }}
+                            </small>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analysis Engine Status -->
+        <div class="row">
+            <div class="col-12 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="fas fa-brain"></i> Silnik Analizy Intraday
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <small class="text-muted">Status:</small><br>
+                                {% if analysis_status.available %}
+                                    <span class="text-success fw-bold">Dostępny</span>
+                                {% else %}
+                                    <span class="text-danger fw-bold">Niedostępny</span>
+                                    {% if analysis_status.error %}
+                                        <br><small class="text-danger">{{ analysis_status.error }}</small>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                            <div class="col-md-3">
+                                <small class="text-muted">Ostatni scan:</small><br>
+                                <span>{{ analysis_status.get('last_scan', 'N/A') }}</span>
+                            </div>
+                            <div class="col-md-3">
+                                <small class="text-muted">Rekomendacje dzisiaj:</small><br>
+                                <span>{{ analysis_status.get('recommendations_today', 0) }}</span>
+                            </div>
+                            <div class="col-md-3">
+                                <a href="{{ url_for('recommendations.intraday_scan') }}" class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-search"></i> Uruchom skanowanie
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Errors -->
+        {% if recent_errors %}
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="fas fa-exclamation-triangle text-warning"></i> Ostatnie Błędy
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        {% for error in recent_errors %}
+                            <div class="log-entry log-error">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Toast notifications -->
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+        <div id="toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <strong class="me-auto" id="toastTitle">GPW Investor</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body" id="toastBody">
+                Powiadomienie
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let refreshInterval;
+        let countdown = 30;
+
+        function showToast(title, message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const toastTitle = document.getElementById('toastTitle');
+            const toastBody = document.getElementById('toastBody');
+            
+            toastTitle.textContent = title;
+            toastBody.textContent = message;
+            
+            // Change toast color based on type
+            toast.className = 'toast';
+            if (type === 'success') {
+                toast.classList.add('text-bg-success');
+            } else if (type === 'error') {
+                toast.classList.add('text-bg-danger');
+            } else if (type === 'warning') {
+                toast.classList.add('text-bg-warning');
+            }
+            
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+        }
+
+        function updateStatusIndicator(elementId, isRunning) {
+            const indicator = document.getElementById(elementId);
+            if (isRunning) {
+                indicator.className = 'status-indicator status-running';
+            } else {
+                indicator.className = 'status-indicator status-stopped';
+            }
+        }
+
+        function updateSchedulerCard(cardId, isRunning) {
+            const card = document.getElementById(cardId);
+            if (isRunning) {
+                card.classList.add('running');
+            } else {
+                card.classList.remove('running');
+            }
+        }
+
+        function refreshData() {
+            fetch('/api/monitoring/schedulers')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Update last update time
+                        const now = new Date();
+                        document.getElementById('lastUpdate').textContent = now.toLocaleTimeString();
+                        
+                        // Update system metrics
+                        if (data.system) {
+                            document.getElementById('activeThreads').textContent = data.system.active_threads;
+                            document.getElementById('cpuUsage').textContent = Math.round(data.system.cpu_percent) + '%';
+                            document.getElementById('memoryUsage').textContent = Math.round(data.system.memory_mb) + ' MB';
+                        }
+                        
+                        // Update multi-ticker scheduler
+                        const multiStatus = data.schedulers.multi_ticker;
+                        updateStatusIndicator('multiTickerIndicator', multiStatus.is_running);
+                        updateSchedulerCard('multiTickerCard', multiStatus.is_running);
+                        document.getElementById('multiTickerStatus').innerHTML = multiStatus.is_running ? 
+                            '<span class="text-success">Uruchomiony</span>' : 
+                            '<span class="text-danger">Zatrzymany</span>';
+                        document.getElementById('multiTickerInterval').textContent = multiStatus.interval_minutes + ' min';
+                        
+                        // Update ticker list
+                        const tickerList = document.getElementById('multiTickerList');
+                        tickerList.innerHTML = '';
+                        multiStatus.active_tickers.forEach(ticker => {
+                            const badge = document.createElement('span');
+                            badge.className = 'badge bg-secondary ticker-badge';
+                            badge.textContent = ticker;
+                            tickerList.appendChild(badge);
+                        });
+                        
+                        // Update news scheduler
+                        const newsStatus = data.schedulers.news;
+                        updateStatusIndicator('newsIndicator', newsStatus.is_running);
+                        updateSchedulerCard('newsCard', newsStatus.is_running);
+                        document.getElementById('newsStatus').innerHTML = newsStatus.is_running ? 
+                            '<span class="text-success">Uruchomiony</span>' : 
+                            '<span class="text-danger">Zatrzymany</span>';
+                        
+                        // Update ESPI scheduler
+                        const espiStatus = data.schedulers.espi;
+                        updateStatusIndicator('espiIndicator', espiStatus.is_running);
+                        updateSchedulerCard('espiCard', espiStatus.is_running);
+                        document.getElementById('espiStatus').innerHTML = espiStatus.is_running ? 
+                            '<span class="text-success">Uruchomiony</span>' : 
+                            '<span class="text-danger">Zatrzymany</span>';
+                        document.getElementById('espiInterval').textContent = espiStatus.interval_hours + ' h';
+                        
+                        // Update last run times if available
+                        if (espiStatus.last_run) {
+                            document.getElementById('espiLastRun').textContent = espiStatus.last_run;
+                        }
+                        if (espiStatus.next_run) {
+                            document.getElementById('espiNextRun').textContent = espiStatus.next_run;
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error refreshing data:', error);
+                    showToast('Błąd', 'Nie udało się odświeżyć danych', 'error');
+                });
+        }
+
+        function controlScheduler(type, action) {
+            let endpoint;
+            let actionText;
+            
+            if (type === 'multi') {
+                endpoint = action === 'start' ? '/selenium_scraper' : '/selenium_scraper';
+                actionText = action === 'start' ? 'uruchomienie' : 'zatrzymanie';
+            } else if (type === 'news') {
+                endpoint = '/api/news_scheduler/' + action;
+                actionText = action === 'start' ? 'uruchomienie' : 'zatrzymanie';
+            } else if (type === 'espi') {
+                endpoint = '/api/espi_scheduler/' + action;
+                actionText = action === 'start' ? 'uruchomienie' : 'zatrzymanie';
+            }
+            
+            if (type === 'multi') {
+                // For multi-ticker, we need to use form submission
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/selenium_scraper';
+                
+                const actionInput = document.createElement('input');
+                actionInput.type = 'hidden';
+                actionInput.name = 'action';
+                actionInput.value = action + '_scheduler';
+                
+                form.appendChild(actionInput);
+                document.body.appendChild(form);
+                form.submit();
+                return;
+            }
+            
+            fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success || data.status === 'success') {
+                    showToast('Sukces', `Scheduler ${type}: ${actionText} powiodło się`, 'success');
+                    setTimeout(refreshData, 1000); // Refresh after 1 second
+                } else {
+                    showToast('Błąd', data.error || data.message || `Nie udało się ${actionText} scheduler ${type}`, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Błąd', `Błąd podczas ${actionText} scheduler ${type}`, 'error');
+            });
+        }
+
+        function manualScrape(type) {
+            let endpoint;
+            let actionText = 'scrapowanie manualne';
+            
+            if (type === 'multi') {
+                // For multi-ticker manual scrape
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/selenium_scraper';
+                
+                const actionInput = document.createElement('input');
+                actionInput.type = 'hidden';
+                actionInput.name = 'action';
+                actionInput.value = 'manual_multi_scrape';
+                
+                form.appendChild(actionInput);
+                document.body.appendChild(form);
+                form.submit();
+                return;
+            } else if (type === 'news') {
+                endpoint = '/api/news_scheduler/manual_news';
+            } else if (type === 'espi') {
+                endpoint = '/api/espi_scheduler/manual';
+            }
+            
+            fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success || data.status === 'success') {
+                    showToast('Sukces', `${actionText} scheduler ${type} uruchomione`, 'success');
+                } else {
+                    showToast('Błąd', data.error || data.message || `Nie udało się uruchomić ${actionText} scheduler ${type}`, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Błąd', `Błąd podczas ${actionText} scheduler ${type}`, 'error');
+            });
+        }
+
+        function startAutoRefresh() {
+            const checkbox = document.getElementById('autoRefresh');
+            if (checkbox.checked) {
+                refreshInterval = setInterval(() => {
+                    countdown--;
+                    document.getElementById('refreshCountdown').textContent = `Odświeżanie za: ${countdown}s`;
+                    
+                    if (countdown <= 0) {
+                        refreshData();
+                        countdown = 30;
+                    }
+                }, 1000);
+            } else {
+                clearInterval(refreshInterval);
+                document.getElementById('refreshCountdown').textContent = 'Auto-odświeżanie wyłączone';
+            }
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set initial indicators
+            updateStatusIndicator('multiTickerIndicator', {{ multi_status.is_running|tojson }});
+            updateStatusIndicator('newsIndicator', {{ news_status.is_running|tojson }});
+            updateStatusIndicator('espiIndicator', {{ espi_status.is_running|tojson }});
+            
+            updateSchedulerCard('multiTickerCard', {{ multi_status.is_running|tojson }});
+            updateSchedulerCard('newsCard', {{ news_status.is_running|tojson }});
+            updateSchedulerCard('espiCard', {{ espi_status.is_running|tojson }});
+            
+            // Start auto-refresh
+            startAutoRefresh();
+            
+            // Auto-refresh toggle
+            document.getElementById('autoRefresh').addEventListener('change', function() {
+                clearInterval(refreshInterval);
+                countdown = 30;
+                startAutoRefresh();
+            });
+        });
+    </script>
+</body>
+</html>

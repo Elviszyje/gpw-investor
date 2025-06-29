@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analiza Rekomendacji - GPW Investor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .hero-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+        }
+        .recommendation-buy {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+        .recommendation-sell {
+            background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+            color: white;
+        }
+        .recommendation-hold {
+            background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <!-- Nagłówek -->
+    <div class="hero-section">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1><i class="fas fa-chart-line"></i> GPW Investor</h1>
+                    <h3>🎯 Analiza Rekomendacji Inwestycyjnych</h3>
+                </div>
+                <div class="col-md-4 text-end">
+                    <a href="/" class="btn btn-light">
+                        <i class="fas fa-home"></i> Strona główna
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alerty -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="container">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">🎯 Analiza Rekomendacji Inwestycyjnych</h1>
+            
+            <!-- Formularz wyboru spółki -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>📊 Wybierz spółkę do analizy</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="ticker" class="form-label">Wybierz z listy:</label>
+                                <select name="ticker" class="form-control">
+                                    <option value="">-- Wybierz spółkę --</option>
+                                    {% for company in companies %}
+                                        <option value="{{ company.ticker }}" {% if selected_ticker == company.ticker %}selected{% endif %}>
+                                            {{ company.ticker }} - {{ company.name or company.ticker }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="new_ticker" class="form-label">Lub wpisz ticker:</label>
+                                <input type="text" name="new_ticker" class="form-control" placeholder="np. CDR" 
+                                       {% if selected_ticker %}value="{{ selected_ticker }}"{% endif %}>
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                <label>&nbsp;</label>
+                                <button type="submit" class="btn btn-primary w-100">🔍 Analizuj</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Wyniki analizy -->
+            {% if result %}
+            <div class="card">
+                <div class="card-header">
+                    <h5>📈 Wyniki analizy dla {{ result.ticker }}</h5>
+                    <small class="text-muted">{{ result.timestamp }}</small>
+                </div>
+                <div class="card-body">
+                    <!-- Finalna rekomendacja -->
+                    <div class="alert 
+                        {% if result.final_recommendation == 'BUY' %}alert-success
+                        {% elif result.final_recommendation == 'SELL' %}alert-danger
+                        {% else %}alert-warning{% endif %} text-center">
+                        <h3>
+                            {% if result.final_recommendation == 'BUY' %}
+                                🟢 REKOMENDACJA: KUPUJ
+                            {% elif result.final_recommendation == 'SELL' %}
+                                🔴 REKOMENDACJA: SPRZEDAJ
+                            {% else %}
+                                🟡 REKOMENDACJA: TRZYMAJ
+                            {% endif %}
+                        </h3>
+                    </div>
+
+                    <!-- Analiza techniczna -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h6>📊 Wskaźniki techniczne:</h6>
+                            <ul class="list-group">
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Cena aktualna:</span>
+                                    <strong>{{ "%.2f"|format(result.technical_analysis.current_price) }} PLN</strong>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>RSI (14):</span>
+                                    <strong>{{ "%.1f"|format(result.technical_analysis.rsi) }}</strong>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>SMA (20):</span>
+                                    <strong>{{ "%.2f"|format(result.technical_analysis.sma_20) }} PLN</strong>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>EMA (12):</span>
+                                    <strong>{{ "%.2f"|format(result.technical_analysis.ema_12) }} PLN</strong>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>📈 Bollinger Bands:</h6>
+                            <ul class="list-group">
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Górne pasmo:</span>
+                                    <strong>{{ "%.2f"|format(result.technical_analysis.bb_upper) }} PLN</strong>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Środkowe (SMA 20):</span>
+                                    <strong>{{ "%.2f"|format(result.technical_analysis.bb_middle) }} PLN</strong>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Dolne pasmo:</span>
+                                    <strong>{{ "%.2f"|format(result.technical_analysis.bb_lower) }} PLN</strong>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Trend:</span>
+                                    <strong>{{ result.technical_analysis.trend }}</strong>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Sygnały kupna -->
+                    {% if result.buy_analysis.signals %}
+                    <div class="mb-4">
+                        <h6>🟢 Sygnały kupna (Confidence: {{ "%.1f"|format(result.buy_analysis.total_confidence) }}%):</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Reguła</th>
+                                        <th>Wartość</th>
+                                        <th>Próg</th>
+                                        <th>Confidence</th>
+                                        <th>Szczegóły</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for signal in result.buy_analysis.signals %}
+                                    <tr>
+                                        <td>{{ signal.name }}</td>
+                                        <td>{{ "%.3f"|format(signal.value) }}</td>
+                                        <td>{{ "%.3f"|format(signal.threshold) if signal.threshold else 'N/A' }}</td>
+                                        <td><span class="badge bg-success">{{ signal.confidence }}%</span></td>
+                                        <td><small>{{ signal.details }}</small></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Sygnały sprzedaży -->
+                    {% if result.sell_analysis.signals %}
+                    <div class="mb-4">
+                        <h6>🔴 Sygnały sprzedaży (Confidence: {{ "%.1f"|format(result.sell_analysis.total_confidence) }}%):</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Reguła</th>
+                                        <th>Wartość</th>
+                                        <th>Próg</th>
+                                        <th>Confidence</th>
+                                        <th>Szczegóły</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for signal in result.sell_analysis.signals %}
+                                    <tr>
+                                        <td>{{ signal.name }}</td>
+                                        <td>{{ "%.3f"|format(signal.value) }}</td>
+                                        <td>{{ "%.3f"|format(signal.threshold) if signal.threshold else 'N/A' }}</td>
+                                        <td><span class="badge bg-danger">{{ signal.confidence }}%</span></td>
+                                        <td><small>{{ signal.details }}</small></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Brak sygnałów -->
+                    {% if not result.buy_analysis.signals and not result.sell_analysis.signals %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Brak aktywnych sygnałów kupna lub sprzedaży dla {{ result.ticker }}.
+                    </div>
+                    {% endif %}
+
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Informacje o systemie -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h6>ℹ️ O systemie rekomendacji</h6>
+                </div>
+                <div class="card-body">
+                    <p><strong>System analizuje 8 typów sygnałów:</strong></p>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>🟢 Sygnały kupna:</h6>
+                            <ul class="small">
+                                <li>Spadek ceny > 4% + wysoki wolumen</li>
+                                <li>RSI < 30 (wyprzedanie)</li>
+                                <li>Bycza dywergencja MACD</li>
+                                <li>Cena przy wsparciu (Bollinger Bands)</li>
+                                <li>Wybicie wolumenu</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>🔴 Sygnały sprzedaży:</h6>
+                            <ul class="small">
+                                <li>Szybki zysk > 2% w 3h</li>
+                                <li>Stop loss > 5%</li>
+                                <li>RSI > 70 (wykupienie)</li>
+                                <li>Niedźwiedzia dywergencja MACD</li>
+                                <li>Cena przy oporze (Bollinger Bands)</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <p class="small text-muted mt-2">
+                        * System wykorzystuje ostatnie 100 dni danych. Każdy sygnał ma przypisany poziom confidence (pewności).
+                        Finalna rekomendacja uwzględnia wszystkie aktywne sygnały.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

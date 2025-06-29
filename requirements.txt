@@ -1,0 +1,21 @@
+flask
+psycopg2-binary
+pandas
+numpy
+sqlalchemy
+apscheduler
+requests
+beautifulsoup4
+python-dotenv
+selenium
+webdriver-manager
+feedparser
+
+# Machine Learning dependencies (compatible versions)
+scikit-learn==1.5.2
+joblib
+numpy>=1.23.0,<2.0.0
+
+# Additional dependencies for containerization
+psutil
+gunicorn
