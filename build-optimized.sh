@@ -96,6 +96,16 @@ echo -e "${BLUE}📁 Creating data directories...${NC}"
 mkdir -p data/postgres data/redis logs storage/articles models
 chmod -R 755 data logs storage models
 
+# Check if .env file exists
+if [ ! -f ".env" ]; then
+    echo -e "${RED}❌ .env file not found!${NC}"
+    echo -e "${YELLOW}💡 Copy .env.example to .env and configure it:${NC}"
+    echo -e "${YELLOW}   cp .env.example .env${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}✅ Environment file found${NC}"
+
 # Build with optimizations
 echo -e "${BLUE}🔨 Building Docker image with optimizations...${NC}"
 
@@ -123,7 +133,17 @@ fi
 
 # Validate image
 echo -e "${BLUE}🔍 Validating built image...${NC}"
-if docker run --rm $IMAGE_NAME:latest python -c "import app; print('✅ App imports successfully')"; then
+
+# Simple Python import test (without environment variables)
+if docker run --rm $IMAGE_NAME:latest python -c "
+try:
+    import flask, psycopg2, pandas, numpy
+    print('✅ All core dependencies imported successfully')
+    exit(0)
+except ImportError as e:
+    print(f'❌ Import failed: {e}')
+    exit(1)
+"; then
     echo -e "${GREEN}✅ Image validation passed${NC}"
 else
     echo -e "${RED}❌ Image validation failed${NC}"

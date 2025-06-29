@@ -4,6 +4,7 @@ services:
     image: postgres:15-alpine
     container_name: gpw_postgres
     restart: unless-stopped
+    env_file: .env
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -75,6 +76,7 @@ services:
         BUILDKIT_INLINE_CACHE: 1
     container_name: gpw_app
     restart: unless-stopped
+    env_file: .env
     depends_on:
       postgres:
         condition: service_healthy
@@ -171,15 +173,7 @@ networks:
 volumes:
   postgres_data:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ./data/postgres
   redis_data:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ./data/redis
 
 # Development override file would be docker-compose.override.yml

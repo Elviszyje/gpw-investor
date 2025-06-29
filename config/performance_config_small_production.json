@@ -1,0 +1,75 @@
+{
+  "profile_name": "small_production",
+  "generated_at": "2025-06-27T00:06:14.277857",
+  "description": "Ma\u0142e firmy, osoby prywatne",
+  "schedulers": {
+    "multi_ticker_scheduler": {
+      "interval_minutes": 3,
+      "max_instances": 1,
+      "coalesce": true,
+      "misfire_grace_time": 30,
+      "enabled": true
+    },
+    "news_scheduler": {
+      "news_interval_minutes": 30,
+      "espi_interval_minutes": 60,
+      "news_days_back": 1,
+      "espi_days_back": 2,
+      "max_instances": 1,
+      "enabled": true
+    },
+    "analysis_engine": {
+      "scan_interval_minutes": 60,
+      "max_workers": 6,
+      "enabled": true
+    }
+  },
+  "resources": {
+    "threading": {
+      "max_workers": 12,
+      "thread_pool_size": 12,
+      "selenium_instances": 2
+    },
+    "database": {
+      "max_connections": 10,
+      "pool_size": 10,
+      "pool_timeout": 30,
+      "pool_recycle": 3600
+    },
+    "processes": {
+      "worker_processes": 1,
+      "separate_flask": false,
+      "separate_schedulers": false
+    }
+  },
+  "features": {
+    "monitoring": {
+      "enabled": true,
+      "interval_seconds": 30,
+      "metrics_retention_hours": 168
+    },
+    "caching": {
+      "enabled": true,
+      "type": "memory",
+      "ttl_seconds": 300
+    },
+    "notifications": {
+      "telegram_enabled": true,
+      "email_enabled": false,
+      "alert_levels": [
+        "CRITICAL"
+      ]
+    },
+    "architecture": {
+      "microservices": false,
+      "kubernetes": false,
+      "load_balancer": false,
+      "async_mode": false
+    }
+  },
+  "limits": {
+    "max_tickers": 30,
+    "max_users": 10,
+    "max_articles_daily": 1000
+  }
+}

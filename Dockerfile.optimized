@@ -1,5 +1,5 @@
 # GPW Investor - Optimized Multi-stage Dockerfile
-FROM python:3.11-slim as builder
+FROM python:3.11-slim AS builder
 
 # Ustaw zmienne środowiskowe dla build stage
 ENV PYTHONDONTWRITEBYTECODE=1
