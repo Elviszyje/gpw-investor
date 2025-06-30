@@ -1,11 +1,11 @@
 #!/bin/bash
-# Database Migration Script for GPW Investor
-# Fixes missing columns in companies table
+# Alternative Database Migration Script for GPW Investor
+# For cases where PostgreSQL is on a different port or external server
 
 set -e
 
-echo "🔧 GPW Investor - Database Migration"
-echo "===================================="
+echo "🔧 GPW Investor - Alternative Database Migration"
+echo "==============================================="
 
 # Colors for output
 RED='\033[0;31m'
@@ -32,62 +32,61 @@ if [ -z "$POSTGRES_DB" ] || [ -z "$POSTGRES_USER" ] || [ -z "$POSTGRES_PASSWORD"
     exit 1
 fi
 
-# Detect database port from DB_PORT or default to 5432
+# Get database connection parameters
+DB_HOST=${DB_HOST:-localhost}
 DB_PORT=${DB_PORT:-5432}
+
 echo -e "${BLUE}🔍 Database configuration:${NC}"
-echo -e "  Host: ${DB_HOST:-localhost}"
+echo -e "  Host: $DB_HOST"
 echo -e "  Port: $DB_PORT"
 echo -e "  Database: $POSTGRES_DB"
 echo -e "  User: $POSTGRES_USER"
 
-# Auto-detect container name - prioritize GPW-specific container
-POSTGRES_CONTAINER=""
+# Method 1: Try using docker exec first
+echo -e "${YELLOW}🔍 Method 1: Trying to find PostgreSQL container...${NC}"
+POSTGRES_CONTAINER=$(docker ps --format "table {{.Names}}" | grep -E "(postgres|gpw_postgres)" | head -1)
 
-# First try to find GPW-specific PostgreSQL container
-if docker ps --format "{{.Names}}" | grep -q "^gpw_postgres$"; then
-    POSTGRES_CONTAINER="gpw_postgres"
-    echo -e "${GREEN}✅ Found GPW PostgreSQL container: $POSTGRES_CONTAINER${NC}"
-elif docker ps --format "{{.Names}}" | grep -q "postgres"; then
-    POSTGRES_CONTAINER=$(docker ps --format "{{.Names}}" | grep "postgres" | head -1)
-    echo -e "${YELLOW}⚠️ Using generic PostgreSQL container: $POSTGRES_CONTAINER${NC}"
+if [ -n "$POSTGRES_CONTAINER" ]; then
+    echo -e "${GREEN}✅ Found PostgreSQL container: $POSTGRES_CONTAINER${NC}"
+    
+    # Wait for PostgreSQL to be ready
+    echo -e "${YELLOW}⏳ Waiting for PostgreSQL to be ready...${NC}"
+    until docker exec "$POSTGRES_CONTAINER" pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" > /dev/null 2>&1; do
+        echo "Waiting for PostgreSQL..."
+        sleep 2
+    done
+    echo -e "${GREEN}✅ PostgreSQL is ready!${NC}"
+    
+    EXEC_METHOD="docker exec -i $POSTGRES_CONTAINER psql -U $POSTGRES_USER -d $POSTGRES_DB"
+    
 else
-    echo -e "${RED}❌ No PostgreSQL container found!${NC}"
-    echo -e "${YELLOW}💡 Make sure PostgreSQL container is running:${NC}"
-    echo -e "${YELLOW}   docker-compose -f docker-compose.compatible.yml ps${NC}"
-    exit 1
+    # Method 2: Try direct connection using psql
+    echo -e "${YELLOW}🔍 Method 2: Trying direct psql connection...${NC}"
+    
+    # Check if psql is available
+    if ! command -v psql &> /dev/null; then
+        echo -e "${RED}❌ Neither PostgreSQL container found nor psql command available!${NC}"
+        echo -e "${YELLOW}💡 Options:${NC}"
+        echo -e "${YELLOW}   1. Make sure PostgreSQL container is running${NC}"
+        echo -e "${YELLOW}   2. Install postgresql-client: apt-get install postgresql-client${NC}"
+        echo -e "${YELLOW}   3. Run migration from inside a PostgreSQL container${NC}"
+        exit 1
+    fi
+    
+    # Test connection
+    if ! PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT 1;" > /dev/null 2>&1; then
+        echo -e "${RED}❌ Cannot connect to PostgreSQL!${NC}"
+        echo -e "${YELLOW}💡 Check:${NC}"
+        echo -e "${YELLOW}   - Host: $DB_HOST${NC}"
+        echo -e "${YELLOW}   - Port: $DB_PORT${NC}"
+        echo -e "${YELLOW}   - Database: $POSTGRES_DB${NC}"
+        echo -e "${YELLOW}   - User: $POSTGRES_USER${NC}"
+        exit 1
+    fi
+    
+    echo -e "${GREEN}✅ Direct PostgreSQL connection successful!${NC}"
+    EXEC_METHOD="PGPASSWORD=$POSTGRES_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $POSTGRES_USER -d $POSTGRES_DB"
 fi
-
-echo -e "${BLUE}🔍 Using PostgreSQL container: $POSTGRES_CONTAINER${NC}"
-
-# Wait for PostgreSQL to be ready with extended timeout and better error handling
-echo -e "${YELLOW}⏳ Waiting for PostgreSQL to be ready...${NC}"
-TIMEOUT=120  # 2 minutes timeout
-COUNTER=0
-until docker exec "$POSTGRES_CONTAINER" pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" > /dev/null 2>&1; do
-  echo "Waiting for PostgreSQL... ($COUNTER/$TIMEOUT seconds)"
-  
-  # Show container status for debugging
-  if [ $((COUNTER % 20)) -eq 0 ] && [ $COUNTER -gt 0 ]; then
-    echo -e "${BLUE}🔍 Container status:${NC}"
-    docker ps --filter "name=$POSTGRES_CONTAINER" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-    echo -e "${BLUE}🔍 Recent container logs:${NC}"
-    docker logs "$POSTGRES_CONTAINER" --tail=5 2>/dev/null || echo "Could not fetch logs"
-  fi
-  
-  sleep 5
-  COUNTER=$((COUNTER + 5))
-  if [ $COUNTER -ge $TIMEOUT ]; then
-    echo -e "${RED}❌ Timeout waiting for PostgreSQL to be ready!${NC}"
-    echo -e "${YELLOW}💡 Container status:${NC}"
-    docker ps --filter "name=$POSTGRES_CONTAINER"
-    echo -e "${YELLOW}💡 Container logs:${NC}"
-    docker logs "$POSTGRES_CONTAINER" --tail=20
-    echo -e "${YELLOW}💡 Try running manually:${NC}"
-    echo -e "${YELLOW}   docker exec $POSTGRES_CONTAINER pg_isready -U $POSTGRES_USER -d $POSTGRES_DB${NC}"
-    exit 1
-  fi
-done
-echo -e "${GREEN}✅ PostgreSQL is ready!${NC}"
 
 echo -e "${BLUE}🔧 Running database migration...${NC}"
 
@@ -155,12 +154,12 @@ ORDER BY ordinal_position;
 "
 
 # Execute migration
-if docker exec -i "$POSTGRES_CONTAINER" psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<< "$MIGRATION_SQL"; then
+if echo "$MIGRATION_SQL" | eval "$EXEC_METHOD"; then
     echo -e "${GREEN}✅ Database migration completed successfully!${NC}"
     
     # Show current companies table structure
     echo -e "${BLUE}📋 Current companies table structure:${NC}"
-    docker exec "$POSTGRES_CONTAINER" psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "\d companies"
+    echo "\d companies" | eval "$EXEC_METHOD"
     
     echo ""
     echo -e "${GREEN}🎉 Migration completed! The application should now work properly.${NC}"
@@ -169,7 +168,6 @@ if docker exec -i "$POSTGRES_CONTAINER" psql -U "$POSTGRES_USER" -d "$POSTGRES_D
     
 else
     echo -e "${RED}❌ Database migration failed!${NC}"
-    echo -e "${YELLOW}💡 Check the PostgreSQL logs:${NC}"
-    echo -e "${YELLOW}   docker-compose -f docker-compose.compatible.yml logs postgres${NC}"
+    echo -e "${YELLOW}💡 Check the PostgreSQL connection and logs${NC}"
     exit 1
 fi
