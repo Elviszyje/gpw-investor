@@ -104,42 +104,42 @@ BEGIN
                    WHERE table_name = 'companies' AND column_name = 'data_source') THEN
         ALTER TABLE companies ADD COLUMN data_source VARCHAR(50) DEFAULT 'manual';
         UPDATE companies SET data_source = 'auto_registered' WHERE data_source IS NULL;
-        RAISE NOTICE '✅ Added data_source column to companies table';
+        RAISE NOTICE 'Added data_source column to companies table';
     ELSE
-        RAISE NOTICE '⏭️ data_source column already exists in companies table';
+        RAISE NOTICE 'data_source column already exists in companies table';
     END IF;
     
     -- Add first_data_date column
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
                    WHERE table_name = 'companies' AND column_name = 'first_data_date') THEN
         ALTER TABLE companies ADD COLUMN first_data_date DATE;
-        RAISE NOTICE '✅ Added first_data_date column to companies table';
+        RAISE NOTICE 'Added first_data_date column to companies table';
     ELSE
-        RAISE NOTICE '⏭️ first_data_date column already exists in companies table';
+        RAISE NOTICE 'first_data_date column already exists in companies table';
     END IF;
     
     -- Add last_data_date column
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
                    WHERE table_name = 'companies' AND column_name = 'last_data_date') THEN
         ALTER TABLE companies ADD COLUMN last_data_date DATE;
-        RAISE NOTICE '✅ Added last_data_date column to companies table';
+        RAISE NOTICE 'Added last_data_date column to companies table';
     ELSE
-        RAISE NOTICE '⏭️ last_data_date column already exists in companies table';
+        RAISE NOTICE 'last_data_date column already exists in companies table';
     END IF;
     
     -- Add total_records column
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
                    WHERE table_name = 'companies' AND column_name = 'total_records') THEN
         ALTER TABLE companies ADD COLUMN total_records INTEGER DEFAULT 0;
-        RAISE NOTICE '✅ Added total_records column to companies table';
+        RAISE NOTICE 'Added total_records column to companies table';
     ELSE
-        RAISE NOTICE '⏭️ total_records column already exists in companies table';
+        RAISE NOTICE 'total_records column already exists in companies table';
     END IF;
     
     -- Update data_source for existing records if needed
     UPDATE companies SET data_source = 'manual' WHERE data_source IS NULL OR data_source = '';
     
-    RAISE NOTICE '🎉 Database migration completed successfully!';
+    RAISE NOTICE 'Database migration completed successfully!';
 END \$\$;
 
 -- Verify the schema

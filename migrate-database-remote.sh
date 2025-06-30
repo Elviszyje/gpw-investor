@@ -79,34 +79,34 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = ''companies'' AND column_name = ''data_source'') THEN
         ALTER TABLE companies ADD COLUMN data_source VARCHAR(50) DEFAULT ''manual'';
         UPDATE companies SET data_source = ''auto_registered'' WHERE data_source IS NULL;
-        RAISE NOTICE ''✅ Added data_source column to companies table'';
+        RAISE NOTICE ''Added data_source column to companies table'';
     ELSE
-        RAISE NOTICE ''⏭️ data_source column already exists'';
+        RAISE NOTICE ''data_source column already exists'';
     END IF;
     
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = ''companies'' AND column_name = ''first_data_date'') THEN
         ALTER TABLE companies ADD COLUMN first_data_date DATE;
-        RAISE NOTICE ''✅ Added first_data_date column to companies table'';
+        RAISE NOTICE ''Added first_data_date column to companies table'';
     ELSE
-        RAISE NOTICE ''⏭️ first_data_date column already exists'';
+        RAISE NOTICE ''first_data_date column already exists'';
     END IF;
     
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = ''companies'' AND column_name = ''last_data_date'') THEN
         ALTER TABLE companies ADD COLUMN last_data_date DATE;
-        RAISE NOTICE ''✅ Added last_data_date column to companies table'';
+        RAISE NOTICE ''Added last_data_date column to companies table'';
     ELSE
-        RAISE NOTICE ''⏭️ last_data_date column already exists'';
+        RAISE NOTICE ''last_data_date column already exists'';
     END IF;
     
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = ''companies'' AND column_name = ''total_records'') THEN
         ALTER TABLE companies ADD COLUMN total_records INTEGER DEFAULT 0;
-        RAISE NOTICE ''✅ Added total_records column to companies table'';
+        RAISE NOTICE ''Added total_records column to companies table'';
     ELSE
-        RAISE NOTICE ''⏭️ total_records column already exists'';
+        RAISE NOTICE ''total_records column already exists'';
     END IF;
     
     UPDATE companies SET data_source = ''manual'' WHERE data_source IS NULL OR data_source = '''';
-    RAISE NOTICE ''🎉 Database migration completed successfully!'';
+    RAISE NOTICE ''Database migration completed successfully!'';
 END $$;'
 
         if docker exec "$POSTGRES_CONTAINER" psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "$MIGRATION_SQL"; then
@@ -148,34 +148,34 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'companies' AND column_name = 'data_source') THEN
         ALTER TABLE companies ADD COLUMN data_source VARCHAR(50) DEFAULT 'manual';
         UPDATE companies SET data_source = 'auto_registered' WHERE data_source IS NULL;
-        RAISE NOTICE '✅ Added data_source column to companies table';
+        RAISE NOTICE 'Added data_source column to companies table';
     ELSE
-        RAISE NOTICE '⏭️ data_source column already exists';
+        RAISE NOTICE 'data_source column already exists';
     END IF;
     
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'companies' AND column_name = 'first_data_date') THEN
         ALTER TABLE companies ADD COLUMN first_data_date DATE;
-        RAISE NOTICE '✅ Added first_data_date column to companies table';
+        RAISE NOTICE 'Added first_data_date column to companies table';
     ELSE
-        RAISE NOTICE '⏭️ first_data_date column already exists';
+        RAISE NOTICE 'first_data_date column already exists';
     END IF;
     
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'companies' AND column_name = 'last_data_date') THEN
         ALTER TABLE companies ADD COLUMN last_data_date DATE;
-        RAISE NOTICE '✅ Added last_data_date column to companies table';
+        RAISE NOTICE 'Added last_data_date column to companies table';
     ELSE
-        RAISE NOTICE '⏭️ last_data_date column already exists';
+        RAISE NOTICE 'last_data_date column already exists';
     END IF;
     
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'companies' AND column_name = 'total_records') THEN
         ALTER TABLE companies ADD COLUMN total_records INTEGER DEFAULT 0;
-        RAISE NOTICE '✅ Added total_records column to companies table';
+        RAISE NOTICE 'Added total_records column to companies table';
     ELSE
-        RAISE NOTICE '⏭️ total_records column already exists';
+        RAISE NOTICE 'total_records column already exists';
     END IF;
     
     UPDATE companies SET data_source = 'manual' WHERE data_source IS NULL OR data_source = '';
-    RAISE NOTICE '🎉 Database migration completed successfully!';
+    RAISE NOTICE 'Database migration completed successfully!';
 END \$\$;"
 
     if PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$DB_HOST" -p "$EXTERNAL_DB_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "$MIGRATION_SQL"; then
