@@ -115,11 +115,14 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      # Persist application data
-      - ./data:/app/data
-      - ./logs:/app/logs
-      - ./storage:/app/storage
-      - ./models:/app/models
+      # Persist application data using Docker volumes (safer than bind mounts)
+      - app_data:/app/data
+      - app_logs:/app/logs
+      - app_storage:/app/storage
+      - app_models:/app/models
+      # Optional: mount local development directories for development profile
+      # - ./data:/app/data
+      # - ./logs:/app/logs
     networks:
       - gpw_network
     healthcheck:
@@ -169,11 +172,19 @@ networks:
       config:
         - subnet: 172.20.0.0/16
 
-# Volume Configuration with optimizations
+# Volume Configuration with optimizations  
 volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  app_data:
+    driver: local
+  app_logs:
+    driver: local
+  app_storage:
+    driver: local
+  app_models:
     driver: local
 
 # Development override file would be docker-compose.override.yml

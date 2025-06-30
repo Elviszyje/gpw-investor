@@ -14,8 +14,15 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Skopiuj i zainstaluj zależności Python
-COPY requirements.txt /tmp/
-RUN pip install --no-cache-dir --user -r /tmp/requirements.txt
+# Spróbuj najpierw requirements.optimized.txt, potem fallback do requirements.txt
+COPY requirements*.txt /tmp/
+RUN if [ -f "/tmp/requirements.optimized.txt" ]; then \
+        echo "Using optimized requirements"; \
+        pip install --no-cache-dir --user -r /tmp/requirements.optimized.txt; \
+    else \
+        echo "Using standard requirements"; \
+        pip install --no-cache-dir --user -r /tmp/requirements.txt; \
+    fi
 
 # ================================================
 # PRODUCTION STAGE
@@ -67,6 +74,13 @@ RUN ARCH=$(dpkg --print-architecture) \
 # Skopiuj Python packages z builder stage
 COPY --from=builder /root/.local /home/app/.local
 
+# Ustaw użytkownika non-root dla bezpieczeństwa PRZED kopiowaniem plików
+RUN useradd --create-home --shell /bin/bash app
+
+# Skopiuj Python packages z builder stage do user directory
+COPY --from=builder /root/.local /home/app/.local
+RUN chown -R app:app /home/app/.local
+
 # Ustaw PATH dla user packages
 ENV PATH=/home/app/.local/bin:$PATH
 
@@ -76,7 +90,8 @@ COPY --chown=app:app . /app/
 # Usuń niepotrzebne pliki
 RUN rm -rf /app/.git /app/__pycache__ /app/.pytest_cache \
     /app/virt /app/archive /app/*.log /app/.DS_Store \
-    /app/requirements.txt /app/build-docker.sh
+    /app/requirements*.txt /app/build-docker.sh /app/build-optimized.sh \
+    /app/test-performance.sh /app/*.md
 
 # Utwórz strukturę katalogów
 RUN mkdir -p /app/logs /app/data /app/storage/articles /app/models
@@ -86,9 +101,8 @@ ENV FLASK_APP=app.py
 ENV FLASK_ENV=production
 ENV PYTHONPATH=/app
 
-# Ustaw użytkownika non-root dla bezpieczeństwa
-RUN useradd --create-home --shell /bin/bash app \
-    && chown -R app:app /app
+# Ustaw właściciela katalogów
+RUN chown -R app:app /app
 USER app
 
 # Eksponuj port
