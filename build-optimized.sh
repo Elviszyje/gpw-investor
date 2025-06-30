@@ -44,10 +44,16 @@ while [[ $# -gt 0 ]]; do
       PARALLEL_JOBS="$2"
       shift 2
       ;;
+    --compatible)
+      COMPOSE_FILE="docker-compose.compatible.yml"
+      echo -e "${YELLOW}📋 Using compatible Docker Compose file for older versions${NC}"
+      shift
+      ;;
     -h|--help)
       echo "Usage: $0 [options]"
       echo "Options:"
       echo "  --production    Build for production"
+      echo "  --compatible    Use compatible compose file for older Docker versions"
       echo "  --clean         Clean build (remove volumes and images)"
       echo "  --no-cache      Build without Docker cache"
       echo "  --parallel N    Set number of parallel jobs (default: 4)"

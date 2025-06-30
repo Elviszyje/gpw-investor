@@ -1,0 +1,138 @@
+services:
+  # PostgreSQL Database with optimizations
+  postgres:
+    image: postgres:15-alpine
+    container_name: gpw_postgres
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+      # Performance optimizations
+      POSTGRES_SHARED_BUFFERS: "256MB"
+      POSTGRES_EFFECTIVE_CACHE_SIZE: "1GB"
+      POSTGRES_MAINTENANCE_WORK_MEM: "64MB"
+      POSTGRES_CHECKPOINT_COMPLETION_TARGET: "0.9"
+      POSTGRES_WAL_BUFFERS: "16MB"
+      POSTGRES_DEFAULT_STATISTICS_TARGET: "100"
+      POSTGRES_RANDOM_PAGE_COST: "1.1"
+      POSTGRES_EFFECTIVE_IO_CONCURRENCY: "200"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Use new consolidated schema file
+      - ./database-schema.sql:/docker-entrypoint-initdb.d/database-schema.sql:ro
+      # Add custom postgresql.conf for optimizations (optional)
+      # - ./config/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - gpw_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Memory limits using older syntax
+    mem_limit: 1g
+    memswap_limit: 1g
+
+  # Redis Cache with persistence and optimizations
+  redis:
+    image: redis:7-alpine
+    container_name: gpw_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - gpw_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    # Memory limits using older syntax
+    mem_limit: 512m
+    memswap_limit: 512m
+
+  # GPW Investor Flask Application with optimizations
+  gpw_app:
+    build:
+      context: .
+      dockerfile: Dockerfile.optimized
+      # Use BuildKit for faster builds
+      args:
+        BUILDKIT_INLINE_CACHE: 1
+    container_name: gpw_app
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      # Database Configuration
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      
+      # Flask Configuration
+      FLASK_ENV: ${FLASK_ENV}
+      FLASK_DEBUG: ${FLASK_DEBUG}
+      SECRET_KEY: ${SECRET_KEY}
+      
+      # Redis Configuration
+      REDIS_URL: ${REDIS_URL}
+      
+      # Telegram Configuration
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_DEFAULT_CHAT_ID: ${TELEGRAM_DEFAULT_CHAT_ID}
+      
+      # Chrome/Selenium Configuration
+      CHROME_BIN: /usr/bin/google-chrome
+      DISPLAY: :99
+      
+      # Timezone
+      TZ: ${TZ}
+      
+      # Python optimizations
+      PYTHONHASHSEED: random
+      PYTHONOPTIMIZE: 1
+    ports:
+      - "5000:5000"
+    volumes:
+      # Persist application data using Docker volumes (safer than bind mounts)
+      - app_data:/app/data
+      - app_logs:/app/logs
+      - app_storage:/app/storage
+      - app_models:/app/models
+    networks:
+      - gpw_network
+    # Memory limits using older syntax
+    mem_limit: 2g
+    memswap_limit: 2g
+
+# Networks
+networks:
+  gpw_network:
+    driver: bridge
+
+# Volumes  
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  app_data:
+    driver: local
+  app_logs:
+    driver: local
+  app_storage:
+    driver: local
+  app_models:
+    driver: local
