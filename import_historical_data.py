@@ -629,3 +629,16 @@ class HistoricalDataImporter:
         except Exception as e:
             logging.error(f"Error getting import stats: {e}")
             return {}
+    
+    def import_single_file(self, file_path: str) -> Dict[str, Any]:
+        """Import data from a single file - delegated to manager"""
+        if self.manager:
+            return self.manager.import_single_file(file_path)
+        else:
+            return {
+                'status': 'error', 
+                'message': 'Manager not initialized',
+                'imported': 0,
+                'skipped': 0,
+                'errors': 1
+            }

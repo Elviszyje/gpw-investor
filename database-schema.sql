@@ -39,6 +39,10 @@ CREATE TABLE IF NOT EXISTS companies (
     name VARCHAR(255),
     sector VARCHAR(100),
     industry VARCHAR(100),
+    data_source VARCHAR(50) DEFAULT 'manual',
+    first_data_date DATE,
+    last_data_date DATE,
+    total_records INTEGER DEFAULT 0,
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -422,6 +426,42 @@ GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO gpw_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO gpw_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON SEQUENCES TO gpw_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON FUNCTIONS TO gpw_user;
+
+-- =====================================================
+-- MIGRACJE SCHEMATÓW (DLA ISTNIEJĄCYCH BAZ DANYCH)
+-- =====================================================
+
+-- Dodaj brakujące kolumny do tabeli companies (jeśli nie istnieją)
+DO $$
+BEGIN
+    -- Dodaj kolumnę data_source
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'companies' AND column_name = 'data_source') THEN
+        ALTER TABLE companies ADD COLUMN data_source VARCHAR(50) DEFAULT 'manual';
+        RAISE NOTICE 'Added data_source column to companies table';
+    END IF;
+    
+    -- Dodaj kolumnę first_data_date
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'companies' AND column_name = 'first_data_date') THEN
+        ALTER TABLE companies ADD COLUMN first_data_date DATE;
+        RAISE NOTICE 'Added first_data_date column to companies table';
+    END IF;
+    
+    -- Dodaj kolumnę last_data_date
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'companies' AND column_name = 'last_data_date') THEN
+        ALTER TABLE companies ADD COLUMN last_data_date DATE;
+        RAISE NOTICE 'Added last_data_date column to companies table';
+    END IF;
+    
+    -- Dodaj kolumnę total_records
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'companies' AND column_name = 'total_records') THEN
+        ALTER TABLE companies ADD COLUMN total_records INTEGER DEFAULT 0;
+        RAISE NOTICE 'Added total_records column to companies table';
+    END IF;
+END $$;
 
 -- =====================================================
 -- ZAKOŃCZENIE
