@@ -1,0 +1,141 @@
+# GPW Investor - Production Docker Compose Configuration
+# Single, consolidated configuration for remote deployment
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: gpw_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-gpw_investor}
+      POSTGRES_USER: ${POSTGRES_USER:-gpw_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_password_123}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database-schema.sql:/docker-entrypoint-initdb.d/database-schema.sql:ro
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    networks:
+      - gpw_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gpw_user} -d ${POSTGRES_DB:-gpw_investor}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: gpw_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - gpw_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # GPW Investor Flask Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.optimized
+    image: gpw-investor:latest
+    container_name: gpw_app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Database Configuration - ensure consistency
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-gpw_investor}
+      DB_USER: ${POSTGRES_USER:-gpw_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-secure_password_123}
+      
+      # PostgreSQL Configuration (for compatibility)
+      POSTGRES_DB: ${POSTGRES_DB:-gpw_investor}
+      POSTGRES_USER: ${POSTGRES_USER:-gpw_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_password_123}
+      
+      # Flask Configuration
+      FLASK_ENV: ${FLASK_ENV:-production}
+      FLASK_DEBUG: ${FLASK_DEBUG:-false}
+      SECRET_KEY: ${SECRET_KEY:-change_this_secret_key_in_production}
+      
+      # Redis Configuration
+      REDIS_URL: redis://redis:6379/0
+      
+      # Telegram Configuration (optional)
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_DEFAULT_CHAT_ID: ${TELEGRAM_DEFAULT_CHAT_ID:-}
+      
+      # System Configuration
+      TZ: ${TZ:-Europe/Warsaw}
+      PYTHONHASHSEED: random
+      PYTHONOPTIMIZE: 1
+      
+    ports:
+      - "${APP_PORT:-5000}:5000"
+    volumes:
+      - app_data:/app/data
+      - app_logs:/app/logs
+      - app_storage:/app/storage
+      - app_models:/app/models
+    networks:
+      - gpw_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/app/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# Networks
+networks:
+  gpw_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# Persistent volumes
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  app_data:
+    driver: local
+  app_logs:
+    driver: local
+  app_storage:
+    driver: local
+  app_models:
+    driver: local

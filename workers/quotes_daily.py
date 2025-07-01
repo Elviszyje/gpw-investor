@@ -1,28 +1,13 @@
 import pandas as pd
-from sqlalchemy import create_engine
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy import text
-from dotenv import load_dotenv
-import os
+from sqlalchemy.exc import IntegrityError
+from database_config import get_database_engine, get_database_connection
+import logging
 
-load_dotenv('.env')
+logger = logging.getLogger(__name__)
 
-# Poprawne nazwy zmiennych środowiskowych (duże litery, bez spacji i cudzysłowów w .env)
-db_user = os.getenv("DB_USER")
-db_password = os.getenv("DB_PASSWORD")
-db_host = os.getenv("DB_HOST")
-db_port = os.getenv("DB_PORT")
-db_name = os.getenv("DB_NAME")
-
-# Walidacja obecności zmiennych środowiskowych
-assert db_user is not None, "DB_USER nie jest ustawiony!"
-assert db_password is not None, "DB_PASSWORD nie jest ustawiony!"
-assert db_host is not None, "DB_HOST nie jest ustawiony!"
-assert db_port is not None, "DB_PORT nie jest ustawiony!"
-assert db_name is not None, "DB_NAME nie jest ustawiony!"
-
-db_uri = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
-engine = create_engine(db_uri)
+# Use centralized database configuration
+engine = get_database_engine()
 
 def fetch_stooq_data(ticker: str, interval: str = "d"):
     url = f"https://stooq.pl/q/d/l/?s={ticker}&i={interval}"
