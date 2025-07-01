@@ -33,6 +33,48 @@ echo -e "${GREEN}✅ Old files archived${NC}"
 
 echo -e "${BLUE}🔧 2. Setting up unified environment...${NC}"
 
+# Check if .env.unified exists, if not create it
+if [ ! -f ".env.unified" ]; then
+    echo -e "${YELLOW}⚠️ .env.unified not found, creating from scratch...${NC}"
+    cat > .env.unified << 'EOF'
+# GPW Investor - Zunifikowana konfiguracja środowiska production
+# Skopiuj ten plik do .env i ustaw bezpieczne hasła
+
+# ===== KONFIGURACJA BAZY DANYCH =====
+POSTGRES_DB=gpw_investor
+POSTGRES_USER=gpw_user
+POSTGRES_PASSWORD=ZMIEN_NA_BEZPIECZNE_HASLO_PRODUCTION
+
+# Database connection dla aplikacji (musi być identyczne z PostgreSQL)
+DB_HOST=postgres
+DB_PORT=5432
+DB_NAME=gpw_investor
+DB_USER=gpw_user
+DB_PASSWORD=ZMIEN_NA_BEZPIECZNE_HASLO_PRODUCTION
+
+# ===== KONFIGURACJA FLASK =====
+FLASK_ENV=production
+FLASK_DEBUG=false
+SECRET_KEY=ZMIEN_NA_BEZPIECZNY_KLUCZ_MIN_32_ZNAKI_PRODUCTION
+
+# ===== KONFIGURACJA APLIKACJI =====
+APP_PORT=5000
+TZ=Europe/Warsaw
+
+# ===== REDIS =====
+REDIS_URL=redis://redis:6379/0
+
+# ===== OPCJONALNE - TELEGRAM BOT =====
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_DEFAULT_CHAT_ID=
+
+# ===== UWAGI =====
+# 1. ZMIEŃ wszystkie hasła i klucze przed deploymentem!
+# 2. Użyj: ./deploy-unified.sh deploy
+# 3. Sprawdź status: ./deploy-unified.sh status
+EOF
+fi
+
 # Copy unified template to .env
 cp .env.unified .env
 

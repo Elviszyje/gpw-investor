@@ -48,36 +48,13 @@ setup_environment() {
         if [ -f "$ENV_TEMPLATE" ]; then
             cp "$ENV_TEMPLATE" "$ENV_FILE"
             echo -e "${GREEN}✅ Created .env from template${NC}"
-        elif [ -f ".env.production" ]; then
-            echo -e "${YELLOW}Using .env.production as fallback template...${NC}"
-            cp .env.production "$ENV_FILE"
-            echo -e "${GREEN}✅ Created .env from .env.production${NC}"
+            echo -e "${RED}🚨 IMPORTANT: Edit .env file and set secure passwords!${NC}"
+            echo -e "${YELLOW}Press Enter to continue or Ctrl+C to edit .env first${NC}"
+            read
         else
-            echo -e "${YELLOW}Creating minimal .env template...${NC}"
-            cat > "$ENV_FILE" << 'EOF'
-# GPW Investor - Production Environment Configuration
-POSTGRES_DB=gpw_investor
-POSTGRES_USER=gpw_user
-POSTGRES_PASSWORD=ZMIEN_NA_BEZPIECZNE_HASLO_PRODUCTION
-DB_HOST=postgres
-DB_PORT=5432
-DB_NAME=gpw_investor
-DB_USER=gpw_user
-DB_PASSWORD=ZMIEN_NA_BEZPIECZNE_HASLO_PRODUCTION
-FLASK_ENV=production
-FLASK_DEBUG=false
-SECRET_KEY=ZMIEN_NA_BEZPIECZNY_KLUCZ_MIN_32_ZNAKI_PRODUCTION
-APP_PORT=5000
-TZ=Europe/Warsaw
-REDIS_URL=redis://redis:6379/0
-TELEGRAM_BOT_TOKEN=
-TELEGRAM_DEFAULT_CHAT_ID=
-EOF
-            echo -e "${GREEN}✅ Created minimal .env template${NC}"
+            echo -e "${RED}❌ No .env template found!${NC}"
+            exit 1
         fi
-        echo -e "${RED}🚨 IMPORTANT: Edit .env file and set secure passwords!${NC}"
-        echo -e "${YELLOW}Press Enter to continue or Ctrl+C to edit .env first${NC}"
-        read
     fi
 
     # Load environment variables
